@@ -1,4 +1,4 @@
-package port
+package user
 
 import (
 	"context"
@@ -11,4 +11,4 @@ type UserRepository interface {
     GetUserByID(ctx context.Context, id string) (*model.User, error)
     UpdateUser(ctx context.Context, u model.User, id string) error
     DeleteUser(ctx context.Context, id string) error
-}
+}       

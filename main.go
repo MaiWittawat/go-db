@@ -4,9 +4,10 @@ import (
 	"context"
 	"go-rebuild/db"
 	"go-rebuild/handler/api"
-	handler "go-rebuild/handler/user"
-	"go-rebuild/module/port"
-	"go-rebuild/module/service"
+	"go-rebuild/handler"
+	moduleUser "go-rebuild/module/user"
+	moduleProduct "go-rebuild/module/product"
+	moduleOrder "go-rebuild/module/order"
 	"go-rebuild/repository"
 	"log"
 	"time"
@@ -22,7 +23,7 @@ func main(){
 
 	godotenv.Load()
 
-	var userDB port.UserDB
+	var dbRepo db.DB
 	useMongo := true
 
 	if useMongo {
@@ -30,21 +31,35 @@ func main(){
 		if err != nil {
 			log.Fatal("fail to connect mongodb: ", err)
 		}
-		userDB = repository.NewMongoUserRepo(mgDB)
+		log.Println("connect to mongo success")
+		dbRepo = db.NewMongoRepo(mgDB, "miniproject")
 	} else {
 		pgDB, err := db.InitPsqlDB()
 		if err != nil {
 			log.Fatal("fail to connect psqldb: ", err)
 		}
-		userDB = repository.NewPsqlUserRepo(pgDB)
+		log.Println("connect to psql success")
+		dbRepo = db.NewPsqlRepo(pgDB)
 	}
 
 	router := gin.Default()
 	
-	userRepo := repository.NewUserRepo(userDB)
-	userSvc := service.NewUserService(userRepo)
+	userRepo := repository.NewUserRepo(dbRepo)
+	userSvc := moduleUser.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userSvc)
 	api.RegisterUserAPI(router, userHandler)
+
+
+	productRepo := repository.NewProductRepo(dbRepo)
+	productSvc := moduleProduct.NewProductService(productRepo)
+	productHandler := handler.NewProductHandler(productSvc)
+	api.RegisterProductAPI(router, productHandler)
+
+	orderRepo := repository.NewOrderRepo(dbRepo)
+	orderSvc := moduleOrder.NewOrderService(orderRepo)
+	orderHandler := handler.NewOrderHandler(orderSvc)
+	api.RegisterOrderAPI(router, orderHandler)
+
 	
 	
 	if err := router.Run(":3000"); err != nil{
