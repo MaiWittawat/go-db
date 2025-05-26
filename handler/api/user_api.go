@@ -7,9 +7,11 @@ import (
 )
 
 func RegisterUserAPI(router *gin.Engine, userHandler *handler.UserHandler) {
-	public := router.Group("/users")
-
-	public.POST("/", userHandler.RegisterUser)
-	public.PATCH("/:id", userHandler.EditUser)
-	public.DELETE("/:id", userHandler.DropUser)
+	protected := router.Group("/users")
+	protected.POST("/register/user", userHandler.RegisterUser)
+	protected.POST("/register/seller", userHandler.RegisterSeller)
+	protected.GET("/", userHandler.GetUsers)
+	protected.GET("/:id", userHandler.GetUserByID)
+	protected.PATCH("/:id", userHandler.EditUser)
+	protected.DELETE("/:id", userHandler.DropUser)
 }

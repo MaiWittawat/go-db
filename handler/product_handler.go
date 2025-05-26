@@ -31,6 +31,24 @@ func (ph *ProductHandler) CreateProduct(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "product created"})
 }
 
+func (ph *ProductHandler) GetProducts(c *gin.Context) {
+	products, err := ph.service.GetAll(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+		c.JSON(http.StatusOK, gin.H{"message": "get product success", "data": products})
+}
+
+func (ph *ProductHandler) GetProduct(c *gin.Context) {
+	var product model.Product
+	if err := ph.service.GetByID(c.Request.Context(), c.Param("id"), &product); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return 
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get product success", "data": product})
+}
+
 func (ph *ProductHandler) UpdateProduct(c *gin.Context) {
 	var upDateProduct model.Product
 	if err := c.ShouldBindJSON(&upDateProduct); err != nil {

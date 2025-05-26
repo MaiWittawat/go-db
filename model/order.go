@@ -3,6 +3,7 @@ package model
 import "time"
 
 type Order struct {
+	ID        string     `json:"-" gorm:"primaryKey" bson:"_id,omitempty"`
 	UserID    string     `json:"user_id" gorm:"user_id" bson:"user_id"`
 	ProductID string     `json:"product_id" gorm:"product_id" bson:"product_id"`
 	CreatedAt time.Time  `json:"-" gorm:"created_at" bson:"created_at"`

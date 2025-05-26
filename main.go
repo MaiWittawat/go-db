@@ -24,7 +24,7 @@ func main(){
 	godotenv.Load()
 
 	var dbRepo db.DB
-	useMongo := true
+	useMongo := false
 
 	if useMongo {
 		mgDB, err := db.InitMongoDB(ctx)

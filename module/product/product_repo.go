@@ -8,7 +8,10 @@ import (
 
 type ProductRepository interface {
 	AddProduct(ctx context.Context, p *model.Product) error
-	GetProductByID(ctx context.Context, id string) (*model.Product, error)
 	UpdateProduct(ctx context.Context, p *model.Product, id string) error
 	DeleteProduct(ctx context.Context, id string) error
+
+
+	GetAllProduct(ctx context.Context) ([]model.Product, error)
+	GetProductByID(ctx context.Context, id string, p *model.Product) error
 }

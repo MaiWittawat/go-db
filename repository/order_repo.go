@@ -17,26 +17,37 @@ func NewOrderRepo(db dbRepo.DB) module.OrderRepository {
 }
 
 func (or *OrderRepo) AddOrder(ctx context.Context, o *model.Order) error {
-	if err := or.db.Create(ctx, or.collection, o); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (or *OrderRepo) GetOrderByID(ctx context.Context, id string) (*model.Order, error) {
-	return nil, nil
+	return or.db.Create(ctx, or.collection, o)
 }
 
 func (or *OrderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string) error {
-	if err := or.db.Update(ctx, or.collection, o, id); err != nil {
+	return or.db.Update(ctx, or.collection, o, id)
+}
+
+func (or *OrderRepo) DeleteOrder(ctx context.Context, id string) error {
+	var order model.Order
+	if err := or.db.GetByID(ctx, or.collection, id, &order); err != nil {
+		return err
+	}
+
+	if err := or.db.Delete(ctx, or.collection, order, id); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (or *OrderRepo) DeleteOrder(ctx context.Context, id string) error {
-	if err := or.db.Delete(ctx, or.collection, id); err != nil {
-		return err
+
+
+func (or *OrderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
+	var orders []model.Order
+	if err := or.db.GetAll(ctx, or.collection, orders); err != nil {
+		return nil, err
 	}
-	return nil
+	return orders, nil
 }
+
+func (or *OrderRepo) GetOrderByID(ctx context.Context, id string, order *model.Order) (err error) {
+	return or.db.GetByID(ctx, or.collection, id, order)
+}
+
+

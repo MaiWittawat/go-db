@@ -3,8 +3,6 @@ package db
 import (
 	"context"
 	"go-rebuild/model"
-	"strconv"
-
 	"gorm.io/gorm"
 )
 
@@ -12,27 +10,50 @@ type psqlRepo struct {
 	db *gorm.DB
 }
 
+// ------------------------ Constructor ------------------------
 func NewPsqlRepo(db *gorm.DB) DB {
 	db.AutoMigrate(&model.User{})
+	db.AutoMigrate(&model.Product{})
+	db.AutoMigrate(&model.Order{})
 	return &psqlRepo{db: db}
 }
 
+// ------------------------ Method Basic CUD ------------------------
 func (p *psqlRepo) Create(ctx context.Context, _ string,  model any) error {
 	return p.db.WithContext(ctx).Create(model).Error
 }
 
-func (p *psqlRepo) Update(ctx context.Context, _ string, model any, idStr string) error {
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return err
-	}
+func (p *psqlRepo) Update(ctx context.Context, _ string, model any, id string) error {
 	return p.db.WithContext(ctx).Model(model).Where("id = ?", id).Updates(model).Error
 }
 
-func (p *psqlRepo) Delete(ctx context.Context, _ string, idStr string) error {
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		return err
+func (p *psqlRepo) Delete(ctx context.Context, _ string, model any, id string) error {
+	return p.db.WithContext(ctx).Delete(model, "id = ?", id).Error
+}
+
+// ------------------------ Method Basic Query ------------------------
+func (p *psqlRepo) GetAll(ctx context.Context, _ string, results any) error {
+	res := p.db.WithContext(ctx).Find(results)
+	if res.Error != nil {
+		return res.Error
 	}
-	return p.db.WithContext(ctx).Delete(&model.User{}, "id = ?", id).Error
+	return nil
+}
+
+func (p *psqlRepo) GetByID(ctx context.Context, _ string, id string, result any) error {
+	condition := map[string]any{"id": id}
+	res := p.db.WithContext(ctx).Where(condition).First(&result)
+	if res.Error != nil {
+		return res.Error
+	}
+	return nil
+}
+
+func (p *psqlRepo) GetByField(ctx context.Context, _ string, field string, value any, result any) error {
+	condition := map[string]any{field: value}
+	res := p.db.WithContext(ctx).Where(condition).First(&result)
+	if res.Error != nil {
+		return res.Error
+	}
+	return nil
 }

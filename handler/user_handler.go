@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"go-rebuild/model"
 	module "go-rebuild/module/user"
 	"net/http"
@@ -8,11 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type UserRequest struct {
-	Username string `json:"username"`
-	Password string	`json:"password"`
-	Email string	`json:"email"`
-}
 
 type UserHandler struct {
 	service module.UserService
@@ -22,23 +18,14 @@ func NewUserHandler(service module.UserService) *UserHandler {
 	return &UserHandler{service: service}
 }
 
-
-func request2User(userReq *UserRequest) *model.User {
-	return &model.User{
-		Username: userReq.Username,
-		Password: userReq.Password,
-		Email: userReq.Email,
-	}
-}
-
-func (uh *UserHandler)	RegisterUser(c *gin.Context) {
-	var userReq UserRequest
-	if err := c.ShouldBindJSON(&userReq); err != nil {
+func (uh *UserHandler) RegisterUser(c *gin.Context) {
+	var user model.User
+	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := uh.service.Save(c.Request.Context(), request2User(&userReq))
+	err := uh.service.SaveUser(c.Request.Context(), &user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot save user"})
 		return
@@ -47,17 +34,34 @@ func (uh *UserHandler)	RegisterUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "user created"})
 }
 
-func (uh *UserHandler)	EditUser(c *gin.Context) {
-	var userReq UserRequest
-	id := c.Param("id")
-	if err := c.ShouldBindJSON(&userReq); err != nil {
+func (uh *UserHandler) RegisterSeller(c *gin.Context) {
+	var user model.User
+	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := uh.service.Update(c.Request.Context(), request2User(&userReq), id)
+	err := uh.service.SaveSeller(c.Request.Context(), &user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot save seller"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "seller created"})
+}
+
+func (uh *UserHandler) EditUser(c *gin.Context) {
+	var user model.User
+	id := c.Param("id")
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := uh.service.Update(c.Request.Context(), &user, id)
+	if err != nil {
+		fmt.Println("error: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user", "err": err.Error()})
 		return
 	}
 
@@ -69,9 +73,30 @@ func (uh *UserHandler) DropUser(c *gin.Context) {
 
 	err := uh.service.Delete(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user", "err": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted"})
+}
+
+
+
+func (uh *UserHandler) GetUsers(c *gin.Context) {
+	users, err := uh.service.GetAll(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot get all user"}) 
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get all user success", "data": users})
+}
+
+
+func (uh *UserHandler) GetUserByID(c *gin.Context) {
+	user, err := uh.service.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot get user"}) 
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get all user success", "data": user})
 }

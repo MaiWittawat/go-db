@@ -17,26 +17,30 @@ func NewProductRepo(db dbRepo.DB) module.ProductRepository {
 }
 
 func (pr *ProductRepo) AddProduct(ctx context.Context, p *model.Product) error {
-	if err := pr.db.Create(ctx, pr.collection, p); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (pr *ProductRepo) GetProductByID(ctx context.Context, id string) (*model.Product, error) {
-	return nil, nil
+	return pr.db.Create(ctx, pr.collection, p)
 }
 
 func (pr *ProductRepo) UpdateProduct(ctx context.Context, p *model.Product, id string) error {
-	if err := pr.db.Update(ctx, pr.collection, p, id); err != nil {
-		return err
-	}
-	return nil
+	return pr.db.Update(ctx, pr.collection, p, id)
 }
 
 func (pr *ProductRepo) DeleteProduct(ctx context.Context, id string) error {
-	if err := pr.db.Delete(ctx, pr.collection, id); err != nil {
+	var product model.Product
+	if err := pr.db.GetByID(ctx, pr.collection, id, &product); err != nil {
 		return err
 	}
-	return nil
+	return pr.db.Delete(ctx, pr.collection, product, id)
 }
+
+func (pr *ProductRepo) GetAllProduct(ctx context.Context) ([]model.Product, error) {
+	var products []model.Product
+	if err := pr.db.GetAll(ctx, pr.collection, &products); err != nil {
+		return nil, err
+	}
+	return products, nil
+}
+
+func (pr *ProductRepo) GetProductByID(ctx context.Context, id string, product *model.Product) (err error) {
+	return pr.db.GetByID(ctx, pr.collection, id, product)
+}
+
