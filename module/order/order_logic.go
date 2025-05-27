@@ -12,10 +12,12 @@ type orderService struct {
 	orderRepo OrderRepository
 }
 
+// ------------------------ Constructor ------------------------
 func NewOrderService(ordeRepo OrderRepository) OrderService {
 	return &orderService{orderRepo: ordeRepo}
 }
 
+// ------------------------ Method Basic CUD ------------------------
 func (os *orderService) Save(ctx context.Context, o *model.Order) error {
 	o.ID = primitive.NewObjectID().Hex()
 	o.CreatedAt = time.Now()
@@ -35,18 +37,18 @@ func (os *orderService) Update(ctx context.Context, o *model.Order, id string) e
 }
 
 func (os *orderService) Delete(ctx context.Context, id string) error {
-	if err := os.orderRepo.DeleteOrder(ctx, id); err != nil {
+	var order model.Order 
+	if err := os.orderRepo.GetOrderByID(ctx, id, &order); err != nil {
+		return err
+	}
+
+	if err := os.orderRepo.DeleteOrder(ctx, id, &order); err != nil {
 		return err
 	}
 	return nil
 }
 
-
-
-
-
-
-
+// ------------------------ Method Basic Query ------------------------
 func (os *orderService) GetAll(ctx context.Context) ([]model.Order, error) {
 	orders, err := os.orderRepo.GetAllOrder(ctx)
 	if err != nil {

@@ -7,9 +7,9 @@ import (
 
 
 type UserRepository interface {
+	AddUser(ctx context.Context, u model.User) error
 	UpdateUser(ctx context.Context, u model.User, id string) error
-    DeleteUser(ctx context.Context, id string) error
-	Add(ctx context.Context, u model.User) error
+    DeleteUser(ctx context.Context, id string, user *model.User) error
 
 	
 	GetAllUser(ctx context.Context) ([]model.User, error)

@@ -41,7 +41,7 @@ func (ph *OrderHandler) UpdateOrder(c *gin.Context) {
 		return	
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "order updated"})
+	c.JSON(http.StatusOK, gin.H{"message": "order updated"})
 }
 
 func (ph *OrderHandler) DeleteOrder(c *gin.Context) {
@@ -49,5 +49,25 @@ func (ph *OrderHandler) DeleteOrder(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"message": "order deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "order deleted"})
+}
+
+
+func (ph *OrderHandler) GetOrder(c *gin.Context) {
+	var order model.Order
+	if err := ph.service.GetByID(c.Request.Context(), c.Param("id"), &order); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get order success", "data": order})
+}
+
+
+func (ph *OrderHandler) GetOrders(c *gin.Context) {
+	orders, err := ph.service.GetAll(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get orders success", "data": orders})
 }

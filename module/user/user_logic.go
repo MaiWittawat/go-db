@@ -25,7 +25,7 @@ func (us *userService) SaveUser(ctx context.Context, u *model.User) error {
 	hash, _ := bcrypt.GenerateFromPassword([]byte(u.Password), 4)
 	u.Password = string(hash)
 
-	if err := us.userRepo.Add(ctx, *u); err != nil {
+	if err := us.userRepo.AddUser(ctx, *u); err != nil {
 		return err
 	}
 	return nil
@@ -39,7 +39,7 @@ func (us *userService) SaveSeller(ctx context.Context, u *model.User) error {
 	hash, _ := bcrypt.GenerateFromPassword([]byte(u.Password), 4)
 	u.Password = string(hash)
 
-	if err := us.userRepo.Add(ctx, *u); err != nil {
+	if err := us.userRepo.AddUser(ctx, *u); err != nil {
 		return err
 	}
 	return nil
@@ -72,7 +72,12 @@ func (us *userService) Update(ctx context.Context, u *model.User, id string) err
 }
 
 func (us *userService) Delete(ctx context.Context, id string) error {
-	if err := us.userRepo.DeleteUser(ctx, id); err != nil {
+	var user model.User
+	if err := us.userRepo.GetUserByID(ctx, id, &user); err != nil {
+		return err
+	}
+
+	if err := us.userRepo.DeleteUser(ctx, id, &user); err != nil {
 		return err
 	}
 	return nil

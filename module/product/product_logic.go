@@ -38,7 +38,12 @@ func (ps *productService) Update(ctx context.Context, p *model.Product, id strin
 }
 
 func (ps *productService) Delete(ctx context.Context, id string) error {
-	if err := ps.productRepo.DeleteProduct(ctx, id); err != nil {
+	var product model.Product
+	if err := ps.productRepo.GetProductByID(ctx, id, &product); err != nil {
+		return err
+	}
+
+	if err := ps.productRepo.DeleteProduct(ctx, id, &product); err != nil {
 		return err
 	}
 	return nil

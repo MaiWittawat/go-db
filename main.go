@@ -8,6 +8,7 @@ import (
 	moduleUser "go-rebuild/module/user"
 	moduleProduct "go-rebuild/module/product"
 	moduleOrder "go-rebuild/module/order"
+	"go-rebuild/redis"
 	"go-rebuild/repository"
 	"log"
 	"time"
@@ -42,20 +43,22 @@ func main(){
 		dbRepo = db.NewPsqlRepo(pgDB)
 	}
 
+	redisClient := redis.InitRedisClient()
+	redisCache := redis.NewRedisCache(redisClient)
 	router := gin.Default()
 	
-	userRepo := repository.NewUserRepo(dbRepo)
+	userRepo := repository.NewUserRepo(dbRepo, redisCache)
 	userSvc := moduleUser.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userSvc)
 	api.RegisterUserAPI(router, userHandler)
 
 
-	productRepo := repository.NewProductRepo(dbRepo)
+	productRepo := repository.NewProductRepo(dbRepo, redisCache)
 	productSvc := moduleProduct.NewProductService(productRepo)
 	productHandler := handler.NewProductHandler(productSvc)
 	api.RegisterProductAPI(router, productHandler)
 
-	orderRepo := repository.NewOrderRepo(dbRepo)
+	orderRepo := repository.NewOrderRepo(dbRepo, redisCache)
 	orderSvc := moduleOrder.NewOrderService(orderRepo)
 	orderHandler := handler.NewOrderHandler(orderSvc)
 	api.RegisterOrderAPI(router, orderHandler)
