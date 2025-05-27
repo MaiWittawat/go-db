@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
-	"fmt"
+
 	dbRepo "go-rebuild/db"
 	"go-rebuild/model"
 	module "go-rebuild/module/order"
 	"go-rebuild/redis"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type OrderRepo struct {
@@ -29,10 +31,10 @@ func (or *OrderRepo) AddOrder(ctx context.Context, o *model.Order) error {
 
 	cacheKeyID := or.keyGen.KeyID(o.ID)
 	if err := or.cache.Set(ctx, cacheKeyID, o, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set order cache in AddOrder: ", err)
+		log.Warn("failed to set order cache in AddOrder: ", err)
 	}
 
-	fmt.Println("set cache in AddOrder success")
+	log.Info("set cache in AddOrder success")
 	return nil
 }
 
@@ -43,15 +45,15 @@ func (or *OrderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string)
 	
 	cacheKeyID := or.keyGen.KeyID(id)
 	if err := or.cache.Delete(ctx, cacheKeyID); err != nil {
-		fmt.Println("Warning: fail to clear cache order in UpdateOrder: ", err)
+		log.Warn("failed to clear cache order in UpdateOrder: ", err)
 	}
 
 	cacheKeyList := or.keyGen.KeyList()
 	if err := or.cache.Delete(ctx, cacheKeyList); err != nil {
-		fmt.Println("Warning: fail to clear cache orders in UpdateOrder: ", err)
+		log.Warn("failed to clear cache orders in UpdateOrder: ", err)
 	}
 
-	fmt.Println("set cache in UpdateOrder success")
+	log.Info("set cache in UpdateOrder success")
 	return nil
 }
 
@@ -62,15 +64,15 @@ func (or *OrderRepo) DeleteOrder(ctx context.Context, id string, order *model.Or
 
 	cacheKeyID := or.keyGen.KeyID(id)
 	if err := or.cache.Delete(ctx, cacheKeyID); err != nil {
-		fmt.Println("Warning: fail to clear cache order in DeleteOrder: ", err)
+		log.Warn("failed to clear cache order in DeleteOrder: ", err)
 	}
 
 	cacheKeyList := or.keyGen.KeyList()
 	if err := or.cache.Delete(ctx, cacheKeyList); err != nil {
-		fmt.Println("Warning: fail to clear cache orders in DeleteOrder: ", err)
+		log.Warn("failed to clear cache orders in DeleteOrder: ", err)
 	}
 
-	fmt.Println("set cache in DeleteOrder success")
+	log.Info("set cache in DeleteOrder success")
 	return nil
 }
 
@@ -81,7 +83,6 @@ func (or *OrderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
 	cacheKeyList := or.keyGen.KeyList()
 
 	if err := or.cache.Get(ctx, cacheKeyList, &orders); err == nil {
-		fmt.Println("get order from cache")
 		return orders, nil
 	}
 
@@ -89,19 +90,17 @@ func (or *OrderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
 		return nil, err
 	}
 
-	fmt.Println("get order from db")
 	if err := or.cache.Set(ctx, cacheKeyList, orders, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache orders in GetAllOrder: ", err)
+		log.Warn("failed to set cache orders in GetAllOrder: ", err)
 	}
 
-	fmt.Println("set cache in GetAllOrder success")
+	log.Info("set cache in GetAllOrder success")
 	return orders, nil
 }
 
 func (or *OrderRepo) GetOrderByID(ctx context.Context, id string, order *model.Order) (err error) {
 	cacheKeyID := or.keyGen.KeyID(id)
 	if err = or.cache.Get(ctx, cacheKeyID, &order); err == nil {
-		fmt.Println("get order from cache")
 		return nil
 	}
 
@@ -109,12 +108,11 @@ func (or *OrderRepo) GetOrderByID(ctx context.Context, id string, order *model.O
 		return err
 	}
 
-	fmt.Println("get order from db") 	
 	if err := or.cache.Set(ctx, cacheKeyID, order, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache order in GetOrderByID: ", err)
+		log.Warn("failed to set cache order in GetOrderByID: ", err)
 	}
 
-	fmt.Println("set cache in GetOrderByID success")
+	log.Info("set cache in GetOrderByID success")
 	return nil
 }
 

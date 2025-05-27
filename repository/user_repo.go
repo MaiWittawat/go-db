@@ -2,12 +2,13 @@ package repository
 
 import (
 	"context"
-	"fmt"
 	dbRepo "go-rebuild/db"
 	"go-rebuild/model"
 	module "go-rebuild/module/user"
 	"go-rebuild/redis"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type UserRepo struct {
@@ -31,16 +32,16 @@ func (ur *UserRepo) AddUser(ctx context.Context, u model.User) error {
 	// clear last cahce list
 	cacheKeyList := ur.keyGen.KeyList()
 	if err := ur.cache.Delete(ctx, cacheKeyList); err != nil {
-		fmt.Println("Warning: failed to clear cache users in AddUser: ", err)
+		log.Warn("failed to clear cache users in AddUser: ", err)
 	}
 
 	// set cache
 	cacheKeyID := ur.keyGen.KeyID(u.ID)
 	if err := ur.cache.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
-		fmt.Println("Warning: failed to set cache user in AddUser: ", err)
+		log.Warn("failed to set cache user in AddUser: ", err)
 	}
 
-	fmt.Println("set cache in AddUser success")
+	log.Info("set cache in AddUser success")
 	return nil
 }
 
@@ -53,15 +54,15 @@ func (ur *UserRepo) UpdateUser(ctx context.Context, u model.User, id string) err
 	// clear user cache
 	cacheKeyID := ur.keyGen.KeyID(id)
 	if err := ur.cache.Delete(ctx, cacheKeyID); err != nil {
-		fmt.Println("Warning: fail to clear cache user in UpdateUser: ", err)
+		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
 	// set cache
 	if err := ur.cache.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache user in UpdateUser: ", err)
+		log.Warn("failed to set cache user in UpdateUser: ", err)
 	}
 
-	fmt.Println("set cache in UpdateUser success")
+	log.Info("set cache in UpdateUser success")
 	return nil
 
 }
@@ -73,10 +74,10 @@ func (ur *UserRepo) DeleteUser(ctx context.Context, id string, user *model.User)
 
 	cacheKeyID := ur.keyGen.KeyID(id)
 	if err := ur.cache.Delete(ctx, cacheKeyID); err != nil {
-		fmt.Println("Warning: fail to clear cache user in DeleteUser: ", err)
+		log.Warn("failed to clear cache user in DeleteUser: ", err)
 	}
 
-	fmt.Println("clear cache in DeleteUser success")
+	log.Info("clear cache in DeleteUser success")
 	return nil
 }
 
@@ -86,7 +87,6 @@ func (ur *UserRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 
 	// get data from redis
 	if err := ur.cache.Get(ctx, cacheKeyList, &users); err == nil {
-		fmt.Println("get users from cache")
 		return users, nil
 	}
 
@@ -95,20 +95,18 @@ func (ur *UserRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 		return nil, err
 	}
 
-	fmt.Println("get users from db")
 	// set data to redis
 	if err := ur.cache.Set(ctx, cacheKeyList, users, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache users in GetAllUser")
+		log.Warn("failed to set cache users in GetAllUser")
 	}
 
-	fmt.Println("set cache in GetAllUser success")
+	log.Info("set cache in GetAllUser success")
 	return users, nil
 }
 
 func (ur *UserRepo) GetUserByID(ctx context.Context, id string, user *model.User) (err error) {
 	cacheKeyID := ur.keyGen.KeyID(id)
 	if err := ur.cache.Get(ctx, cacheKeyID, &user); err == nil {
-		fmt.Println("get user from cache")
 		return nil
 	}
 
@@ -116,19 +114,17 @@ func (ur *UserRepo) GetUserByID(ctx context.Context, id string, user *model.User
 		return err
 	}
 
-	fmt.Println("get user from db")
 	if err := ur.cache.Set(ctx, cacheKeyID, user, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache user in GetUserByID")
+		log.Warn("failed to set cache user in GetUserByID")
 	}
 
-	fmt.Println("set cache in GetUserByID success")
+	log.Info("set cache in GetUserByID success")
 	return nil
 }
 
 func (ur *UserRepo) GetUserByEmail(ctx context.Context, email string, user *model.User) (err error) {
 	cacheKeyEmail := ur.keyGen.KeyField("email", email)
 	if err := ur.cache.Get(ctx, cacheKeyEmail, &user); err == nil {
-		fmt.Println("get user from cache")
 		return nil
 	}
 
@@ -136,11 +132,10 @@ func (ur *UserRepo) GetUserByEmail(ctx context.Context, email string, user *mode
 		return err
 	}
 
-	fmt.Println("get user from db")
 	if err := ur.cache.Set(ctx, cacheKeyEmail, user, 15*time.Minute); err != nil {
-		fmt.Println("Warning: fail to set cache user in GetUserByEmail")
+		log.Warn("failed to set cache user in GetUserByEmail")
 	}
 
-	fmt.Println("set cache in GetUserByField success")
+	log.Info("set cache in GetUserByField success")
 	return nil
 }

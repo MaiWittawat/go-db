@@ -27,7 +27,7 @@ func (uh *UserHandler) RegisterUser(c *gin.Context) {
 
 	err := uh.service.SaveUser(c.Request.Context(), &user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot save user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -43,7 +43,7 @@ func (uh *UserHandler) RegisterSeller(c *gin.Context) {
 
 	err := uh.service.SaveSeller(c.Request.Context(), &user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot save seller"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -61,7 +61,7 @@ func (uh *UserHandler) EditUser(c *gin.Context) {
 	err := uh.service.Update(c.Request.Context(), &user, id)
 	if err != nil {
 		fmt.Println("error: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot update user", "err": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -73,7 +73,7 @@ func (uh *UserHandler) DropUser(c *gin.Context) {
 
 	err := uh.service.Delete(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot delete user", "err": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -85,7 +85,7 @@ func (uh *UserHandler) DropUser(c *gin.Context) {
 func (uh *UserHandler) GetUsers(c *gin.Context) {
 	users, err := uh.service.GetAll(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot get all user"}) 
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}) 
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "get all user success", "data": users})
@@ -95,7 +95,7 @@ func (uh *UserHandler) GetUsers(c *gin.Context) {
 func (uh *UserHandler) GetUserByID(c *gin.Context) {
 	user, err := uh.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot get user"}) 
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}) 
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "get all user success", "data": user})
