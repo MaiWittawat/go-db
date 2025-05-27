@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"go-rebuild/model"
+
 	"gorm.io/gorm"
 )
 
@@ -19,12 +20,20 @@ func NewPsqlRepo(db *gorm.DB) DB {
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (p *psqlRepo) Create(ctx context.Context, _ string,  model any) error {
+func (p *psqlRepo) Create(ctx context.Context, _ string, model any) error {
 	return p.db.WithContext(ctx).Create(model).Error
 }
 
 func (p *psqlRepo) Update(ctx context.Context, _ string, model any, id string) error {
-	return p.db.WithContext(ctx).Model(model).Where("id = ?", id).Updates(model).Error
+	result := p.db.WithContext(ctx).Model(model).Where("id = ?", id).Updates(model)
+
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
 
 func (p *psqlRepo) Delete(ctx context.Context, _ string, model any, id string) error {

@@ -36,6 +36,16 @@ func (ps *productService) Save(ctx context.Context, p *model.Product) error {
 
 func (ps *productService) Update(ctx context.Context, p *model.Product, id string) error {
 	p.UpdatedAt = time.Now()
+	log.Info("updating product with ID:", id)
+	if err := ps.productRepo.GetProductByID(ctx, id, p); err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"product_id": id,
+			"layer":      "service",
+			"step":       "Update",
+		}).Error("failed to get product by id")
+		return ErrProductNotFound
+	}
+	log.Info("product found, proceeding to update:", p)
 	if err := ps.productRepo.UpdateProduct(ctx, p, id); err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"product_id": p.ID,
@@ -44,6 +54,7 @@ func (ps *productService) Update(ctx context.Context, p *model.Product, id strin
 		}).Error("failed to update product")
 		return ErrUpdateProduct
 	}
+	log.Info("product updated successfully:", p)
 	return nil
 }
 

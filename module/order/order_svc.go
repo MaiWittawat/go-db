@@ -36,6 +36,15 @@ func (os *orderService) Save(ctx context.Context, o *model.Order) error {
 
 func (os *orderService) Update(ctx context.Context, o *model.Order, id string) error {
 	o.UpdatedAt = time.Now()
+	if err := os.orderRepo.GetOrderByID(ctx, id, o); err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"order_id": id,
+			"layer":    "service",
+			"step":     "Update",
+		}).Error("failed to get order by id")
+		return ErrOrderNotFound
+	}
+	
 	if err := os.orderRepo.UpdateOrder(ctx, o, id); err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"order_id": o.ID,
