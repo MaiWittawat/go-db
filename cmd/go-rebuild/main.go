@@ -76,30 +76,31 @@ func main() {
 	redisClient := rclient.InitRedisClient()
 	cacheSvc := rclient.NewCacheService(redisClient)
 	router := gin.Default()
-	authRepo := auth.NewAuthRepo(appcore_config.Config.SecretKey)
 
+	
 	// User and Auth
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
+	authService := auth.NewAuth(userRepository)
+
 	userService := userSvc.NewUserService(userRepository)
-	authSvc := auth.NewAuthService(userRepository, authRepo)
 
 	userHandler := handler.NewUserHandler(userService)
-	api.RegisterUserAPI(router, userHandler, authSvc)
+	api.RegisterUserAPI(router, userHandler, authService)
 
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authService)
 	api.RegisterAuthAPI(router, authHandler)
 
 	// Product
 	productRepo := productRepo.NewProductRepo(dbRepo, cacheSvc)
 	productSvc := productSvc.NewProductService(productRepo)
 	productHandler := handler.NewProductHandler(productSvc)
-	api.RegisterProductAPI(router, productHandler, authSvc)
+	api.RegisterProductAPI(router, productHandler, authService)
 
 	// Order
 	orderRepo := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
 	orderSvc := orderSvc.NewOrderService(orderRepo)
 	orderHandler := handler.NewOrderHandler(orderSvc)
-	api.RegisterOrderAPI(router, orderHandler, authSvc)
+	api.RegisterOrderAPI(router, orderHandler, authService)
 
 	server := &http.Server{
 		Addr:    ":3000",

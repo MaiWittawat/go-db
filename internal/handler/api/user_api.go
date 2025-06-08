@@ -3,16 +3,14 @@ package api
 import (
 	"go-rebuild/internal/auth"
 	handler "go-rebuild/internal/handler"
-	"go-rebuild/internal/handler/middleware"
-
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterUserAPI(router *gin.Engine, userHandler *handler.UserHandler, authSvc auth.AuthService) {
+func RegisterUserAPI(router *gin.Engine, userHandler *handler.UserHandler, authSvc auth.Jwt) {
 	protected := router.Group("/users")
 	protected.Use(
-		middleware.JWTAuthenMiddleware(authSvc),
-		middleware.AuthorizeMiddleware(authSvc, "USER", "SELLER", "ADMIN"),
+		handler.AuthenticateMiddleware(authSvc),
+		handler.AuthorizeMiddleware(authSvc, "USER", "SELLER", "ADMIN"),
 	)
 
 	protected.GET("/", userHandler.GetUsers)

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type UserHandler struct {
@@ -66,6 +67,7 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUserByID(c *gin.Context) {
+	logrus.Info("id from userHanlder: ", c.Param("id"))
 	user, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -131,6 +131,7 @@ func (ur *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 }
 
 func (ur *userRepo) GetUserByID(ctx context.Context, id string, user *model.User) (err error) {
+	log.Info("user id from userRepo: ", id)
 	cacheKeyID := ur.keyGen.KeyID(id)
 	if err := ur.cache.Get(ctx, cacheKeyID, &user); err == nil {
 		log.Info("user from cache : ", user)

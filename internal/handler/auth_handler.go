@@ -6,13 +6,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type AuthHandler struct {
-	service auth.AuthService
+	service auth.Jwt
 }
 
-func NewAuthHandler(service auth.AuthService) AuthHandler {
+func NewAuthHandler(service auth.Jwt) AuthHandler {
 	return AuthHandler{service: service}
 }
 
@@ -24,7 +25,7 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		return 
 	}
 
-	if err := h.service.RegisterUser(c.Request.Context(), &user); err != nil {
+	if err := h.service.Register(c.Request.Context(), &user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -41,7 +42,7 @@ func (h *AuthHandler) RegisterSeller(c *gin.Context) {
 		return 
 	}
 
-	if err := h.service.RegisterSeller(c.Request.Context(), &seller); err != nil {
+	if err := h.service.Register(c.Request.Context(), &seller); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -50,6 +51,7 @@ func (h *AuthHandler) RegisterSeller(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	logrus.Info("Login")
 	var user model.User
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -114,6 +114,7 @@ func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 }
 
 func (us *userService) GetByID(ctx context.Context, id string) (*model.User, error) {
+	log.Info("user id from userSvc : ", id)
 	var baseLogFields = log.Fields{
 		"user_id":   id,
 		"layer":     "user_service",
