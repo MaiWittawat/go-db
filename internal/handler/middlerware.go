@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"go-rebuild/internal/auth"
 	"net/http"
@@ -8,26 +9,33 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
+	var baseLogFields = log.Fields{
+		"layer":     "middleware",
+		"operation": "authenticate_middleware",
+	}
+
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			log.WithError(errors.New("no string bearer")).WithFields(baseLogFields)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token format"})
 			return
 		}
 
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// ✅ ตรวจ token
+		// ตรวจ token
 		if err := authSvc.VerifyToken(tokenStr); err != nil {
+			log.WithError(err).WithFields(baseLogFields)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
 
-		// ✅ decode token อีกครั้งเพื่อดึง userID (แม้จะไม่ trust ข้อมูล 100%)
+		// decode token อีกครั้งเพื่อดึง userID 
 		token, _ := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 			return []byte(appcore_config.Config.SecretKey), nil
 		})
@@ -36,6 +44,7 @@ func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 			userID := claims["sub"].(string)
 			c.Set("user_id", userID)
 		} else {
+			log.WithError(errors.New("failed to mapclaims")).WithFields(baseLogFields)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
 			return
 		}
@@ -47,7 +56,10 @@ func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 
 
 func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFunc {
-	logrus.Info("in middleware")
+	var baseLogFields = log.Fields{
+		"layer":     "middleware",
+		"operation": "authorize_middleware",
+	}
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
 		if !exists {
@@ -56,22 +68,24 @@ func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFu
 		}
 		userID := userIDVal.(string)
 
-		// ✅ ดึง user จาก cache หรือ DB
+		// ดึง user จาก cache หรือ DB
 		role, err := authSvc.GetRoleUserByID(c, userID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user not found"})
+			log.WithError(err).WithFields(baseLogFields).Error("user not found")
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user not found e"})
 			return
 		}
 
-		// ✅ ตรวจว่า role ตรงไหม
+		// ตรวจว่า role ตรงไหม
 		for _, allowed := range allowedRoles {
 			if *role == allowed {
-				logrus.Info("in middleware check role")
+				log.Info("in middleware check role pass")
 				c.Next()
 				return
 			}
 		}
 
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		log.WithError(errors.New("role not match")).WithFields(baseLogFields)
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "no permissions"})
 	}
 }

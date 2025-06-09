@@ -9,6 +9,7 @@ type Product struct {
 	ID        string     `json:"-" gorm:"column:id;primaryKey" bson:"_id,omitempty"`
 	Title     string     `json:"title" gorm:"column:title" bson:"title"`
 	Price     int        `json:"price" gorm:"column:price" bson:"price"`
+	Quantity  int        `json:"quantity" gorm:"quantity" bson:"quantity"`
 	Detail    string     `json:"detail" gorm:"column:detail" bson:"detail"`
 	CreatedBy string     `json:"_" gorm:"column:created_by" bson:"created_by"`
 	CreatedAt time.Time  `json:"-" gorm:"column:created_at" bson:"created_at"`
@@ -28,6 +29,13 @@ func (p *Product) Verify() error {
 			return errors.New("product price is invalid. It must be greater than zero")
 		}
 	}
+
+	if p.Quantity != 0 {
+		if !p.isValidQuantity() {
+			return errors.New("product quantity is invalid. It must be greater than zero")
+		}
+	}
+
 	if p.Detail != "" {
 		if !p.isValidDetail() {
 			return errors.New("product description is too short. It must be at least 4 characters long")
@@ -43,6 +51,10 @@ func (p *Product) isValidTitle() bool {
 
 func (p *Product) isValidPrice() bool {
 	return p.Price > 0
+}
+
+func (p *Product) isValidQuantity() bool {
+	return p.Quantity > 0
 }
 
 func (p *Product) isValidDetail() bool {

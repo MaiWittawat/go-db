@@ -19,6 +19,7 @@ func NewAuthHandler(service auth.Jwt) AuthHandler {
 
 func (h *AuthHandler) RegisterUser(c *gin.Context) {
 	var user model.User
+	user.Role = "USER"
 
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -36,6 +37,7 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 
 func (h *AuthHandler) RegisterSeller(c *gin.Context) {
 	var seller model.User
+	seller.Role = "SELLER"
 
 	if err := c.ShouldBindJSON(&seller); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

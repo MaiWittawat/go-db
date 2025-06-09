@@ -50,7 +50,7 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 		"email": user.Email,                           // Custom claim
 		"exp":   time.Now().Add(1 * time.Hour).Unix(), // Expiration. expire in 1 hour
 		"iat":   time.Now().Unix(),                    // Issued at
-		"iss":   "my-auth-service",                    // Issuer
+		"iss":   "auth-service",                    // Issuer
 	})
 
 	tokenStr, err := token.SignedString([]byte(appcore_config.Config.SecretKey))
@@ -142,7 +142,6 @@ func (a *authService) Register(ctx context.Context, user *model.User) error {
 
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = user.CreatedAt
-	user.Role = "USER"
 	if err := user.SetPassword(user.Password); err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return ErrCreateUser
