@@ -62,24 +62,13 @@ package appcore_config
 // 	viper.SetDefault("OBSERVE_IS_ACTIVE", )
 // 	viper.SetDefault("OBSERVE_OTLP_ENDPOINT", )
 // 	viper.SetDefault("OBSERVE_INSECURE_MODE",  )
-// 	viper.SetDefault("POSTGRES_URL", )
-// 	viper.SetDefault("MONGO_URL", )
-// 	viper.SetDefault("REDIS_URL", )
-// 	viper.SetDefault("REDIS_PASS", )
-// 	viper.SetDefault("RABBITMQ_URL", )
+
 // 	viper.SetDefault("MINIO_URL", )
 // 	viper.SetDefault("MINIO_SSL", )
 // 	viper.SetDefault("MINIO_ACCESS_KEY", )
 // 	viper.SetDefault("MINIO_SECRET_KEY", )
 // 	viper.SetDefault("MINIO_BUCKET_NAME", )
 // 	viper.SetDefault("MINIO_ECM_BUCKET_NAME", )
-// 	viper.SetDefault("SECRET_KEY", )
-// 	viper.SetDefault("ENVIRONMENT", )
-// 	viper.SetDefault("EMAIL_SMTP_HOST", )
-// 	viper.SetDefault("EMAIL_SMTP_PORT", )
-// 	viper.SetDefault("EMAIL_SMTP_USER", )
-// 	viper.SetDefault("EMAIL_SMTP_PASSWORD", )
-// 	viper.SetDefault("EMAIL_SMTP_FROM", )
 
 // 	Config = &Configurations{
 // 		Mode:                viper.GetString("MODE"),
