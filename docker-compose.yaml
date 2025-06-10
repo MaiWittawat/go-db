@@ -35,7 +35,20 @@ services:
       - redis_data:/data
     command: redis-server --requirepass ${REDIS_PASSWORD}
 
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    tty: true
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
 volumes: 
   postgres_data:
   mongo_data:
   redis_data:
+  rabbitmq_data:

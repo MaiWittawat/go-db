@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
+	"go-rebuild/internal/mail"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/repository"
 	"time"
@@ -21,21 +22,27 @@ var (
 	ErrEmptyToken         = errors.New("token is empty")
 	ErrInvalidToken       = errors.New("invalid token")
 
-	ErrInternalServer = errors.New("internal server error")
-	ErrCreateUser     = errors.New("failed to create user")
-	ErrVerifyUser     = errors.New("failed to verify user")
-	ErrVerifyToken    = errors.New("token verification failed")
-	ErrUserNotFound   = errors.New("user not found")
-	ErrUnauthorized   = errors.New("unauthorized access, please login")
+	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
+	ErrInternalServer   = errors.New("internal server error")
+	ErrCreateUser       = errors.New("failed to create user")
+	ErrVerifyUser       = errors.New("failed to verify user")
+	ErrVerifyToken      = errors.New("token verification failed")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrUnauthorized     = errors.New("unauthorized access, please login")
 )
 
 type authService struct {
 	secretKey string
 	userRepo  repository.UserRepository
+	mailSvc   mail.Mail
 }
 
-func NewAuth(userRepo repository.UserRepository) Jwt {
-	return &authService{secretKey: appcore_config.Config.SecretKey, userRepo: userRepo}
+func NewAuthService(userRepo repository.UserRepository, mailSvc mail.Mail) Jwt {
+	return &authService{
+		secretKey: appcore_config.Config.SecretKey,
+		userRepo:  userRepo,
+		mailSvc:   mailSvc,
+	}
 }
 
 func (a *authService) GenerateToken(user *model.User) (*string, error) {
@@ -50,7 +57,7 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 		"email": user.Email,                           // Custom claim
 		"exp":   time.Now().Add(1 * time.Hour).Unix(), // Expiration. expire in 1 hour
 		"iat":   time.Now().Unix(),                    // Issued at
-		"iss":   "auth-service",                    // Issuer
+		"iss":   "auth-service",                       // Issuer
 	})
 
 	tokenStr, err := token.SignedString([]byte(appcore_config.Config.SecretKey))
@@ -111,7 +118,7 @@ func (a *authService) Login(ctx context.Context, user *model.User) (*string, err
 		return nil, ErrInvalidCredentials
 	}
 
-	if exisUser.Email != user.Email{
+	if exisUser.Email != user.Email {
 		log.WithError(errors.New("email not match")).WithFields(baseLogFileds)
 		return nil, ErrInvalidCredentials
 	}
@@ -152,6 +159,12 @@ func (a *authService) Register(ctx context.Context, user *model.User) error {
 		return ErrCreateUser
 	}
 
+	toEmail := []string{user.Email}
+	log.Info("email: ", toEmail)
+	if err := a.mailSvc.SendWelcomeEmail(toEmail); err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
+		return ErrSendWelcomeEmail
+	}
 	return nil
 }
 

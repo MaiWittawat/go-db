@@ -8,6 +8,7 @@ import (
 	"go-rebuild/internal/db"
 	"go-rebuild/internal/handler"
 	"go-rebuild/internal/handler/api"
+	"go-rebuild/internal/mail"
 
 	orderSvc "go-rebuild/internal/module/order"
 	productSvc "go-rebuild/internal/module/product"
@@ -73,16 +74,20 @@ func main() {
 		dbRepo = db.NewPsqlRepo(pgDBInstant)
 	}
 
+	// init redis client
 	redisClient := rclient.InitRedisClient()
 	cacheSvc := rclient.NewCacheService(redisClient)
 	router := gin.Default()
 
+	// init mail client
+	mailClient := mail.InitMailClient()
+	mailService := mail.NewMailService(mailClient)
 	
 	// User and Auth
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
-	authService := auth.NewAuth(userRepository)
+	authService := auth.NewAuthService(userRepository, mailService)
 
-	userService := userSvc.NewUserService(userRepository)
+	userService := userSvc.NewUserService(userRepository, mailService)
 
 	userHandler := handler.NewUserHandler(userService)
 	api.RegisterUserAPI(router, userHandler, authService)

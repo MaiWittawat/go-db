@@ -3,6 +3,8 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
+	"go-rebuild/internal/mail"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
@@ -12,22 +14,27 @@ import (
 )
 
 var (
-	ErrCreateUser = errors.New("fail to create user")
+	ErrCreateUser   = errors.New("fail to create user")
 	ErrCreateSeller = errors.New("fail to create seller")
-	ErrUpdateUser = errors.New("fail to update user")
-	ErrDeleteUser = errors.New("fail to delete user")
+	ErrUpdateUser   = errors.New("fail to update user")
+	ErrDeleteUser   = errors.New("fail to delete user")
 	ErrHashPassword = errors.New("password is invalid")
 
-	ErrUserNotFound = errors.New("user not found")
+	ErrUserNotFound     = errors.New("user not found")
+	ErrSendEmailMessage = errors.New("failed to send email message")
 )
 
 type userService struct {
 	userRepo repository.UserRepository
+	mailSvc  mail.Mail
 }
 
 // ------------------------ Constructor ------------------------
-func NewUserService(userRepo repository.UserRepository) module.UserService {
-	return &userService{userRepo: userRepo}
+func NewUserService(userRepo repository.UserRepository, mailSvc mail.Mail) module.UserService {
+	return &userService{
+		userRepo: userRepo,
+		mailSvc:  mailSvc,
+	}
 }
 
 // ------------------------ Method Basic UD ------------------------
@@ -68,6 +75,15 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 	if err := us.userRepo.UpdateUser(ctx, &currentUser, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update user")
 		return ErrUpdateUser
+	}
+
+	subject := "Update account"
+	toEmail := []string{currentUser.Email}
+	msg := fmt.Sprintf("Update your information at %v", currentUser.UpdatedAt.Format("2006-01-02 15:04:05 -0700"))
+	
+	if err := us.mailSvc.SendEmail(msg, subject, toEmail); err != nil {
+		log.WithError(err).WithFields(baseLogFields)
+		return ErrSendEmailMessage
 	}
 
 	log.Info("user updated success:", currentUser)
