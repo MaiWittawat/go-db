@@ -5,7 +5,6 @@ import (
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"go-rebuild/internal/model"
 
-	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -16,7 +15,6 @@ type psqlRepo struct {
 
 func InitPsqlDB() (*gorm.DB, error) {
 	dns := appcore_config.Config.PostgresConnString
-	log.Println("dns: ", dns)
 	dialector := postgres.Open(dns)
 	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {

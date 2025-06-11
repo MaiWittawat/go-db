@@ -1,7 +1,7 @@
 services:
-  postgresdb:
+  psql:
     image: postgres:latest
-    container_name: postgresdb
+    container_name: psql
     ports:
       - "5432:5432"
     environment:
@@ -12,9 +12,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: always
   
-  mongodb:
+  mongo:
     image: mongo:latest
-    container_name: mongodb
+    container_name: mongo
     ports:
       - "27017:27017"
     environment:
@@ -30,13 +30,14 @@ services:
     ports:
       - "6379:6379"
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASS}
     volumes:
       - redis_data:/data
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASS}
 
   rabbitmq:
     image: rabbitmq:management-alpine
+    container_name: rabbitmq
     tty: true
     ports:
       - "15672:15672"

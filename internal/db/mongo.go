@@ -6,8 +6,6 @@ import (
 	"fmt"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"reflect"
-
-	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,10 +19,8 @@ type mongoRepo struct {
 }
 
 func InitMongoDB(ctx context.Context) (*mongo.Client, error) {
-	uri := appcore_config.Config.MongoConnString
-	log.Println("uri: ", uri)
-
-	opts := options.Client().ApplyURI(uri).SetMaxPoolSize(100).SetRetryWrites(true)
+	url := appcore_config.Config.MongoConnString
+	opts := options.Client().ApplyURI(url).SetMaxPoolSize(100).SetRetryWrites(true)
 	client, err := mongo.Connect(ctx, opts)
 
 	if err != nil {

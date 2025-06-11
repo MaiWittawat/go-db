@@ -2,9 +2,10 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
-	"go-rebuild/internal/mail"
+	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/repository"
 	"time"
@@ -16,6 +17,12 @@ import (
 )
 
 var (
+	// queue
+	ExchangeName = "user_exchange"
+	ExchangeType = "direct"
+	QueueName    = "user_queue"
+
+	// error
 	ErrUserAlreadyExists  = errors.New("user already exists with this email")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrCreateToken        = errors.New("failed to create token")
@@ -32,16 +39,16 @@ var (
 )
 
 type authService struct {
-	secretKey string
-	userRepo  repository.UserRepository
-	mailSvc   mail.Mail
+	secretKey   string
+	userRepo    repository.UserRepository
+	producerSvc messagebroker.ProducerService
 }
 
-func NewAuthService(userRepo repository.UserRepository, mailSvc mail.Mail) Jwt {
+func NewAuthService(userRepo repository.UserRepository, producerSvc messagebroker.ProducerService) Jwt {
 	return &authService{
-		secretKey: appcore_config.Config.SecretKey,
-		userRepo:  userRepo,
-		mailSvc:   mailSvc,
+		secretKey:   appcore_config.Config.SecretKey,
+		userRepo:    userRepo,
+		producerSvc: producerSvc,
 	}
 }
 
@@ -159,12 +166,27 @@ func (a *authService) Register(ctx context.Context, user *model.User) error {
 		return ErrCreateUser
 	}
 
-	toEmail := []string{user.Email}
-	log.Info("email: ", toEmail)
-	if err := a.mailSvc.SendWelcomeEmail(toEmail); err != nil {
+	body, err := json.Marshal(user)
+	if err != nil {
+		return err
+	}
+
+	packet := model.EnvelopeBroker{
+		Type:    "create_user",
+		Payload: body,
+	}
+
+	packetByte, err := json.Marshal(packet)
+	if err != nil {
+		return err
+	}
+
+	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "user.create")
+	if err := a.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return ErrSendWelcomeEmail
 	}
+
 	return nil
 }
 
