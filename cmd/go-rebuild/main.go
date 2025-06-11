@@ -53,6 +53,8 @@ func main() {
 
 	if appcore_config.Config.Mode == "develop" {
 		log.SetLevel(log.InfoLevel)
+	}else {
+		log.SetLevel(log.WarnLevel)
 	}
 
 	var dbRepo db.DB
