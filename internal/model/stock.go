@@ -21,7 +21,7 @@ type Stock struct {
 	DeletedAt *time.Time `gorm:"column:deleted_at"`
 }
 
-
+// ------------------------ Public Method ------------------------
 func (s *Stock) SetQuantity(quantity int) {
 	if quantity < 0 {
 		s.Quantity = 0
@@ -45,3 +45,5 @@ func (s *Stock) DecreaseQuantity(quantity int) error {
 func (s *Stock) IncreaseQuantity(quantity int) {
 	s.Quantity += quantity
 }
+
+// ------------------------ Private Method ------------------------

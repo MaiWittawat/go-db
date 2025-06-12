@@ -24,10 +24,12 @@ type stockService struct {
 	repo repository.StockRepository
 }
 
+// ------------------------ Constructor ------------------------
 func NewStockService(repo repository.StockRepository) module.StockService {
 	return &stockService{repo: repo}
 }
 
+// ------------------------ Method Basic CUD ------------------------
 func (s *stockService) Save(ctx context.Context, productID string, quantity int) error {
 	var stock = model.Stock{
 		ID:        primitive.NewObjectID().Hex(),
@@ -104,3 +106,5 @@ func (s *stockService) DecreaseQuantity(ctx context.Context, quantity int, produ
 func (s *stockService) Delete(ctx context.Context, id string) error {
 	return nil
 }
+
+// ------------------------ Method Basic Query ------------------------

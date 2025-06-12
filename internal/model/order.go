@@ -22,6 +22,7 @@ type Order struct {
 	DeletedAt *time.Time `json:"-" gorm:"column:deleted_at;index" bson:"deleted_at,omitempty"`
 }
 
+// ------------------------ Public Method ------------------------
 func (o *Order) VerifyNil(order Order) error {
 	if o.UserID == "" {
 		return ErrNilUserID
@@ -30,3 +31,7 @@ func (o *Order) VerifyNil(order Order) error {
 	}
 	return nil
 }
+
+
+// ------------------------ Private Method ------------------------
+// status check or someting

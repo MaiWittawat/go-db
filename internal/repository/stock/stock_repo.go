@@ -18,6 +18,7 @@ type StockRepo struct {
 	keyGen     *cache.KeyGenerator
 }
 
+// ------------------------ Constructor ------------------------
 func NewStockRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.StockRepository {
 	keyGen := cache.NewKeyGenerator("stocks")
 	return &StockRepo{
@@ -28,6 +29,7 @@ func NewStockRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.StockRepository
 	}
 }
 
+// ------------------------ Method Basic CUD ------------------------
 func (r *StockRepo) AddStock(ctx context.Context, s *model.Stock) error {
 	// save to db
 	if err := r.db.Create(ctx, r.collection, s); err != nil {
@@ -44,8 +46,6 @@ func (r *StockRepo) AddStock(ctx context.Context, s *model.Stock) error {
 	cacheKeyProductID := r.keyGen.KeyField("product_id", s.ProductID)
 	if err := r.cacheSvc.Set(ctx, cacheKeyProductID, s, 15*time.Minute); err != nil {
 		log.Warn("failed to set stock cacheKeyProductID in AddStock: ", err)
-	} else {
-		log.Info("set cacheKeyProductID in AddStock success")
 	}
 
 	return nil
@@ -72,7 +72,6 @@ func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) 
 	if err := r.db.Update(ctx, r.collection, s, id); err != nil {
 		return err
 	}
-	log.Info("stock update stock: ", s)
 
 	// clear stock cache
 	cacheKeyList := r.keyGen.KeyList()
@@ -99,41 +98,36 @@ func (r *StockRepo) DeleteStock(ctx context.Context, id string, s *model.Stock) 
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear stock cachelist in DeletStock: ", err)
-	} else {
-		log.Info("clear cacheList in DeleteStock success")
 	}
 
 	// delete cacheKeyID in redis
 	cacheKeyProductID := r.keyGen.KeyField("product_id", s.ProductID)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyProductID); err != nil {
 		log.Warn("failed to clear stock cacheKeyProductID in DeletStock: ", err)
-	} else {
-		log.Info("clear cacheKeyProductID in DeleteStock success")
-	}
+	} 
 
 	return nil
 }
 
+// ------------------------ Method Basic Query ------------------------
 func (r *StockRepo) GetStockByProductID(ctx context.Context, productID string, stock *model.Stock) error {
-	// get data from redis
+	// get stock from redis
 	cacheKeyProductID := r.keyGen.KeyField("product_id", productID)
 	if err := r.cacheSvc.Get(ctx, cacheKeyProductID, &stock); err == nil {
-		log.Info("stock from cache : ", stock)
+		log.Info("stock from cache: ", stock)
 		return nil
 	}
 
-	// get data from db
+	// get stock from db
 	if err := r.db.GetByField(ctx, r.collection, "product_id", productID, stock); err != nil {
+		log.Info("stock from db: ", stock)
 		return err
 	}
 
-	// log get data from db and set cache in redis
-	log.Info("stock from db : ", stock)
+	// set stock cache in redis
 	if err := r.cacheSvc.Set(ctx, cacheKeyProductID, stock, 15*time.Minute); err != nil {
 		log.Warn("failed to set stock cacheKeyProductID in GetStockByProductID: ", err)
-	} else {
-		log.Info("set cacheKeyProductID in GetStockByProductID success")
-	}
+	} 
 
 	return nil
 }
