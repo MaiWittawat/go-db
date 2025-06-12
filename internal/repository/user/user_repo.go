@@ -22,39 +22,40 @@ type userRepo struct {
 func NewUserRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.UserRepository {
 	keyGen := cache.NewKeyGenerator("users")
 	return &userRepo{
-		db: db, 
-		collection: "users", 
-		cacheSvc: cacheSvc, 
-		keyGen: keyGen,
+		db:         db,
+		collection: "users",
+		cacheSvc:   cacheSvc,
+		keyGen:     keyGen,
 	}
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (ur *userRepo) AddUser(ctx context.Context, u *model.User) error {
+func (r *userRepo) AddUser(ctx context.Context, u *model.User) error {
 	// save to db
-	if err := ur.db.Create(ctx, ur.collection, u); err != nil {
+	if err := r.db.Create(ctx, r.collection, u); err != nil {
 		return err
 	}
 
 	// clear last cahce list
-	cacheKeyList := ur.keyGen.KeyList()
-	if err := ur.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
+	cacheKeyList := r.keyGen.KeyList()
+	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache users in AddUser: ", err)
 	}
 
 	// set cache
-	cacheKeyID := ur.keyGen.KeyID(u.ID)
-	if err := ur.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
+	cacheKeyID := r.keyGen.KeyID(u.ID)
+	if err := r.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in AddUser: ", err)
+	} else {
+		log.Info("set cache in AddUser success")
 	}
 
-	log.Info("set cache in AddUser success")
 	return nil
 }
 
-func (ur *userRepo) UpdateUser(ctx context.Context, u *model.User, id string) error {
+func (r *userRepo) UpdateUser(ctx context.Context, u *model.User, id string) error {
 	var oldUser model.User
-	if err := ur.db.GetByID(ctx, ur.collection, id, &oldUser); err != nil {
+	if err := r.db.GetByID(ctx, r.collection, id, &oldUser); err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"user_id": id,
 			"layer":   "repository",
@@ -64,114 +65,143 @@ func (ur *userRepo) UpdateUser(ctx context.Context, u *model.User, id string) er
 	}
 
 	// clear old cache
-	cacheKeyEmail := ur.keyGen.KeyField("email", oldUser.Email)
-	if err := ur.cacheSvc.Delete(ctx, cacheKeyEmail); err != nil {
+	cacheKeyEmail := r.keyGen.KeyField("email", oldUser.Email)
+	if err := r.cacheSvc.Delete(ctx, cacheKeyEmail); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
 	// update user data in db
-	if err := ur.db.Update(ctx, ur.collection, u, id); err != nil {
+	if err := r.db.Update(ctx, r.collection, u, id); err != nil {
 		return err
 	}
 	log.Info("user update user: ", u)
 
 	// clear user cache
-	cacheKeyList := ur.keyGen.KeyList()
-	if err := ur.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
+	cacheKeyList := r.keyGen.KeyList()
+	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
 	// set cache
-	cacheKeyEmail = ur.keyGen.KeyField("email", u.Email)
-	if err := ur.cacheSvc.Set(ctx, cacheKeyEmail, u, 15*time.Minute); err != nil {
+	cacheKeyEmail = r.keyGen.KeyField("email", u.Email)
+	if err := r.cacheSvc.Set(ctx, cacheKeyEmail, u, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in UpdateUser: ", err)
 	}
 
-	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err := r.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
+	} else {
+		log.Info("set cache in UpdateUser success")
 	}
 
-	log.Info("set cache in UpdateUser success")
 	return nil
 
 }
 
-func (ur *userRepo) DeleteUser(ctx context.Context, id string, user *model.User) error {
-	if err := ur.db.Delete(ctx, ur.collection, user, id); err != nil {
+func (r *userRepo) DeleteUser(ctx context.Context, id string, user *model.User) error {
+	// delete user from db
+	if err := r.db.Delete(ctx, r.collection, user, id); err != nil {
 		return err
 	}
 
-	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
-		log.Warn("failed to clear cache user in DeleteUser: ", err)
+	// delete cachelist in redis
+	cacheKeyList := r.keyGen.KeyList()
+	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
+		log.Warn("failed to clearlist cache user in DeleteUser: ", err)
+	} else {
+		log.Info("clear cachelist in DeleteUser success")
 	}
 
-	log.Info("clear cache in DeleteUser success")
+	// delete cacheKeyID in redis
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
+		log.Warn("failed to clear cacheKeyID user in DeleteUser: ", err)
+	} else {
+		log.Info("clear cacheKeyID in DeleteUser success")
+	}
+
+	// delete cacheKeyEmail in redis
+	cacheKeyEmail := r.keyGen.KeyField("email", user.Email)
+	if err := r.cacheSvc.Delete(ctx, cacheKeyEmail); err != nil {
+		log.Warn("failed to clear cacheKeyEmail user in DeleteUser: ", err)
+	} else {
+		log.Info("clear cacheKeyEmail in DeleteUser success")
+	}
+
 	return nil
 }
 
 // ------------------------ Method Basic Query ------------------------
-func (ur *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
-	cacheKeyList := ur.keyGen.KeyList()
+func (r *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
+	cacheKeyList := r.keyGen.KeyList()
 	var users []model.User
 
 	// get data from redis
-	if err := ur.cacheSvc.Get(ctx, cacheKeyList, &users); err == nil {
+	if err := r.cacheSvc.Get(ctx, cacheKeyList, &users); err == nil {
 		return users, nil
 	}
 
 	// get data from db
-	if err := ur.db.GetAll(ctx, ur.collection, &users); err != nil {
+	if err := r.db.GetAll(ctx, r.collection, &users); err != nil {
 		return nil, err
 	}
 
-	// set data to redis
-	if err := ur.cacheSvc.Set(ctx, cacheKeyList, users, 15*time.Minute); err != nil {
+	// log get data from db and set cache in redis
+	log.Info("users from db : ", users)
+	if err := r.cacheSvc.Set(ctx, cacheKeyList, users, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache users in GetAllUser")
+	} else {
+		log.Info("set cache in GetAllUser success")
 	}
 
-	log.Info("set cache in GetAllUser success")
 	return users, nil
 }
 
-func (ur *userRepo) GetUserByID(ctx context.Context, id string, user *model.User) (err error) {
-	log.Info("user id from userRepo: ", id)
-	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cacheSvc.Get(ctx, cacheKeyID, &user); err == nil {
+func (r *userRepo) GetUserByID(ctx context.Context, id string, user *model.User) (err error) {
+	// get data from redis
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err := r.cacheSvc.Get(ctx, cacheKeyID, &user); err == nil {
 		log.Info("user from cache : ", user)
 		return nil
 	}
 
-	if err := ur.db.GetByID(ctx, ur.collection, id, user); err != nil {
-		log.Info("user from db : ", user)
+	// get data from db if redis has no cache
+	if err := r.db.GetByID(ctx, r.collection, id, user); err != nil {
 		return err
 	}
 
-	if err := ur.cacheSvc.Set(ctx, cacheKeyID, user, 15*time.Minute); err != nil {
+	// log get data from db and set cache in redis
+	log.Info("user from db : ", user)
+	if err := r.cacheSvc.Set(ctx, cacheKeyID, user, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in GetUserByID")
+	} else {
+		log.Info("set cache in GetUserByID success")
 	}
 
-	log.Info("set cache in GetUserByID success")
 	return nil
 }
 
-func (ur *userRepo) GetUserByEmail(ctx context.Context, email string, user *model.User) (err error) {
-	cacheKeyEmail := ur.keyGen.KeyField("email", email)
-	if err := ur.cacheSvc.Get(ctx, cacheKeyEmail, &user); err == nil {
+func (r *userRepo) GetUserByEmail(ctx context.Context, email string, user *model.User) (err error) {
+	// get data from redis
+	cacheKeyEmail := r.keyGen.KeyField("email", email)
+	if err := r.cacheSvc.Get(ctx, cacheKeyEmail, &user); err == nil {
 		log.Info("user from cache : ", user)
 		return nil
 	}
 
-	if err := ur.db.GetByField(ctx, ur.collection, "email", email, user); err != nil {
-		log.Info("user from db : ", user)
+	// get data from db if redis has no cache
+	if err := r.db.GetByField(ctx, r.collection, "email", email, user); err != nil {
 		return err
 	}
 
-	if err := ur.cacheSvc.Set(ctx, cacheKeyEmail, user, 15*time.Minute); err != nil {
+	// log get data from db and set cache in redis
+	log.Info("user from db : ", user)
+	if err := r.cacheSvc.Set(ctx, cacheKeyEmail, user, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in GetUserByEmail")
+	} else {
+		log.Info("set cache in GetUserByField success")
 	}
 
-	log.Info("set cache in GetUserByField success")
 	return nil
 }

@@ -44,9 +44,10 @@ func (r *StockRepo) AddStock(ctx context.Context, s *model.Stock) error {
 	cacheKeyID := r.keyGen.KeyID(s.ID)
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, s, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache stock in AddStock: ", err)
+	} else {
+		log.Info("set cache in AddStock success")
 	}
 
-	log.Info("set cache in AddStock success")
 	return nil
 }
 
@@ -55,8 +56,8 @@ func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) 
 	if err := r.db.GetByID(ctx, r.collection, id, &currentStock); err != nil {
 		log.WithError(err).WithFields(log.Fields{
 			"stock_id": id,
-			"layer":   "repository",
-			"step":    "update.stock",
+			"layer":    "repository",
+			"step":     "update.stock",
 		}).Error("failed to get stock by id")
 		return err
 	}
@@ -88,9 +89,10 @@ func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) 
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, s, 15*time.Minute); err != nil {
 		log.Warn("failed to clear cache stock in UpdateStock: ", err)
+	} else {
+		log.Info("set cache in UpdateStock success")
 	}
 
-	log.Info("set cache in UpdateStock success")
 	return nil
 }
 
@@ -102,9 +104,10 @@ func (r *StockRepo) DeleteStock(ctx context.Context, id string, s *model.Stock) 
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
 		log.Warn("failed to clear cache stock in DeletStock: ", err)
+	} else {
+		log.Info("clear cache in DeleteStock success")
 	}
 
-	log.Info("clear cache in DeleteStock success")
 	return nil
 }
 
@@ -124,6 +127,6 @@ func (r *StockRepo) GetStockByProductID(ctx context.Context, productID string, s
 	} else {
 		log.Info("set cache in GetStockByProductID success")
 	}
-	
+
 	return nil
 }
