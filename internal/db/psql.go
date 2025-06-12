@@ -27,6 +27,7 @@ func InitPsqlDB() (*gorm.DB, error) {
 func NewPsqlRepo(db *gorm.DB) DB {
 	db.AutoMigrate(&model.User{})
 	db.AutoMigrate(&model.Product{})
+	db.AutoMigrate(&model.Stock{})
 	db.AutoMigrate(&model.Order{})
 	return &psqlRepo{db: db}
 }

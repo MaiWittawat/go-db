@@ -5,6 +5,14 @@ import (
 	"go-rebuild/internal/model"
 )
 
+type StockRepository interface {
+	AddStock(ctx context.Context, s *model.Stock) error
+	UpdateStock(ctx context.Context, s *model.Stock, id string) error
+	DeleteStock(ctx context.Context, id string, s *model.Stock) error
+
+	GetStockByProductID(ctx context.Context, productID string, stock *model.Stock) error
+}
+
 type OrderRepository interface {
 	AddOrder(ctx context.Context, o *model.Order) error
 	UpdateOrder(ctx context.Context, o *model.Order, id string) error

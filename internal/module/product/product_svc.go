@@ -18,80 +18,104 @@ var (
 	ErrDeleteProduct = errors.New("fail to delete product")
 
 	ErrProductNotFound = errors.New("product not found")
+	ErrPermission      = errors.New("no permission")
 )
-
 
 type productService struct {
 	productRepo repository.ProductRepository
+	stockSvc    module.StockService
 }
 
 // ------------------------ Constructor ------------------------
-func NewProductService(productRepo repository.ProductRepository) module.ProductService {
-	return &productService{productRepo: productRepo}
+func NewProductService(productRepo repository.ProductRepository, stockSvc module.StockService) module.ProductService {
+	return &productService{
+		productRepo: productRepo,
+		stockSvc:    stockSvc,
+	}
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (ps *productService) Save(ctx context.Context, p *model.Product) error {
-	p.ID = primitive.NewObjectID().Hex()
-	p.CreatedAt = time.Now()
-	p.UpdatedAt = p.CreatedAt
+func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userID string) error {
+	log.Println("productReq: ", pReq)
+
+	product := pReq.ToProduct()
+	product.ID = primitive.NewObjectID().Hex()
+	product.CreatedBy = userID
+	product.CreatedAt = time.Now()
+	product.UpdatedAt = product.CreatedAt
+
 
 	var baseLogFields = log.Fields{
-		"product_id": p.ID,
+		"product_id": product.ID,
 		"layer":      "product_service",
 		"operation":  "product_save",
 	}
 
-	if err := ps.productRepo.AddProduct(ctx, p); err != nil {
+	if err := s.productRepo.AddProduct(ctx, product); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to save product")
 		return ErrCreateProduct
 	}
 
-	log.Info("product created success:", p)
+	if err := s.stockSvc.Save(ctx, product.ID, pReq.Quantity); err != nil {
+		return err
+	}
+
+	log.Info("product and stock created success:")
 	return nil
 }
 
-func (ps *productService) Update(ctx context.Context, req *model.Product, id string) error {
+func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id string, userID string) error {
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
 		"operation":  "product_update",
 	}
+	updateProduct := pReq.ToProduct()
 
-	if err := req.Verify(); err != nil {
+	if err := updateProduct.Verify(); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to verify product")
 		return err
 	}
 
 	var currentProduct model.Product
-	if err := ps.productRepo.GetProductByID(ctx, id, &currentProduct); err != nil {
+	if err := s.productRepo.GetProductByID(ctx, id, &currentProduct); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
 		return ErrProductNotFound
 	}
 
-	if req.Title != "" {
-		currentProduct.Title = req.Title
+	if userID != currentProduct.CreatedBy {
+		return ErrPermission
 	}
 
-	if req.Price != 0 {
-		currentProduct.Price = req.Price
+	if updateProduct.Title != "" {
+		currentProduct.Title = updateProduct.Title
 	}
 
-	if req.Detail != "" {
-		currentProduct.Detail = req.Detail
+	if updateProduct.Price != 0 {
+		currentProduct.Price = updateProduct.Price
+	}
+
+	if updateProduct.Detail != "" {
+		currentProduct.Detail = updateProduct.Detail
 	}
 
 	currentProduct.UpdatedAt = time.Now()
-	if err := ps.productRepo.UpdateProduct(ctx, &currentProduct, id); err != nil {
+	if err := s.productRepo.UpdateProduct(ctx, &currentProduct, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update product")
 		return ErrUpdateProduct
+	}
+
+	if pReq.Quantity != 0 {
+		if err := s.stockSvc.IncreaseQuantity(ctx, pReq.Quantity, id); err != nil {
+			return err
+		}
 	}
 
 	log.Info("product updated successfully:", currentProduct)
 	return nil
 }
 
-func (ps *productService) Delete(ctx context.Context, id string) error {
+func (s *productService) Delete(ctx context.Context, id string) error {
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
@@ -99,12 +123,12 @@ func (ps *productService) Delete(ctx context.Context, id string) error {
 	}
 
 	var product model.Product
-	if err := ps.productRepo.GetProductByID(ctx, id, &product); err != nil {
+	if err := s.productRepo.GetProductByID(ctx, id, &product); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
 		return ErrProductNotFound
 	}
 
-	if err := ps.productRepo.DeleteProduct(ctx, id, &product); err != nil {
+	if err := s.productRepo.DeleteProduct(ctx, id, &product); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to delete product")
 		return ErrDeleteProduct
 	}
@@ -114,34 +138,42 @@ func (ps *productService) Delete(ctx context.Context, id string) error {
 }
 
 // ------------------------ Method Basic Query ------------------------
-func (ps *productService) GetAll(ctx context.Context) ([]model.Product, error) {
+func (s *productService) GetAll(ctx context.Context) ([]model.ProductRes, error) {
 	var baseLogFields = log.Fields{
 		"layer":     "product_service",
 		"operation": "product_getAll",
 	}
 
-	products, err := ps.productRepo.GetAllProduct(ctx)
+	products, err := s.productRepo.GetAllProduct(ctx)
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get all product")
 		return nil, ErrProductNotFound
 	}
 
+	var productsRes []model.ProductRes
+	for _, product := range products {
+		productRes := product.ToProductRes()
+		productsRes = append(productsRes, *productRes)
+	}
+
 	log.Info("get all product success")
-	return products, nil
+	return productsRes, nil
 }
 
-func (ps *productService) GetByID(ctx context.Context, id string, product *model.Product) (err error) {
+func (s *productService) GetByID(ctx context.Context, id string) (*model.ProductRes, error) {
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
 		"operation":  "product_getByID",
 	}
 
-	if err = ps.productRepo.GetProductByID(ctx, id, product); err != nil {
+	var product model.Product
+	if err := s.productRepo.GetProductByID(ctx, id, &product); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
-		return ErrProductNotFound
+		return nil, ErrProductNotFound
 	}
 
+	productRes := product.ToProductRes()
 	log.Info("get product by id success:", product)
-	return nil
+	return productRes, nil
 }

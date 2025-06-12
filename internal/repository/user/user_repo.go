@@ -2,9 +2,9 @@ package user
 
 import (
 	"context"
+	"go-rebuild/internal/cache"
 	dbRepo "go-rebuild/internal/db"
 	"go-rebuild/internal/model"
-	rclient "go-rebuild/internal/cache"
 	"go-rebuild/internal/repository"
 	"time"
 
@@ -14,14 +14,19 @@ import (
 type userRepo struct {
 	db         dbRepo.DB
 	collection string
-	cache      rclient.Cache
-	keyGen     *rclient.KeyGenerator
+	cacheSvc   cache.Cache
+	keyGen     *cache.KeyGenerator
 }
 
 // ------------------------ Constructor ------------------------
-func NewUserRepo(db dbRepo.DB, cache rclient.Cache) repository.UserRepository {
-	keyGen := rclient.NewKeyGenerator("users")
-	return &userRepo{db: db, collection: "users", cache: cache, keyGen: keyGen}
+func NewUserRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.UserRepository {
+	keyGen := cache.NewKeyGenerator("users")
+	return &userRepo{
+		db: db, 
+		collection: "users", 
+		cacheSvc: cacheSvc, 
+		keyGen: keyGen,
+	}
 }
 
 // ------------------------ Method Basic CUD ------------------------
@@ -33,13 +38,13 @@ func (ur *userRepo) AddUser(ctx context.Context, u *model.User) error {
 
 	// clear last cahce list
 	cacheKeyList := ur.keyGen.KeyList()
-	if err := ur.cache.Delete(ctx, cacheKeyList); err != nil {
+	if err := ur.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache users in AddUser: ", err)
 	}
 
 	// set cache
 	cacheKeyID := ur.keyGen.KeyID(u.ID)
-	if err := ur.cache.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in AddUser: ", err)
 	}
 
@@ -60,7 +65,7 @@ func (ur *userRepo) UpdateUser(ctx context.Context, u *model.User, id string) er
 
 	// clear old cache
 	cacheKeyEmail := ur.keyGen.KeyField("email", oldUser.Email)
-	if err := ur.cache.Delete(ctx, cacheKeyEmail); err != nil {
+	if err := ur.cacheSvc.Delete(ctx, cacheKeyEmail); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
@@ -72,18 +77,18 @@ func (ur *userRepo) UpdateUser(ctx context.Context, u *model.User, id string) er
 
 	// clear user cache
 	cacheKeyList := ur.keyGen.KeyList()
-	if err := ur.cache.Delete(ctx, cacheKeyList); err != nil {
+	if err := ur.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
 	// set cache
 	cacheKeyEmail = ur.keyGen.KeyField("email", u.Email)
-	if err := ur.cache.Set(ctx, cacheKeyEmail, u, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyEmail, u, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in UpdateUser: ", err)
 	}
 
 	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cache.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyID, u, 15*time.Minute); err != nil {
 		log.Warn("failed to clear cache user in UpdateUser: ", err)
 	}
 
@@ -98,7 +103,7 @@ func (ur *userRepo) DeleteUser(ctx context.Context, id string, user *model.User)
 	}
 
 	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cache.Delete(ctx, cacheKeyID); err != nil {
+	if err := ur.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
 		log.Warn("failed to clear cache user in DeleteUser: ", err)
 	}
 
@@ -112,7 +117,7 @@ func (ur *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 	var users []model.User
 
 	// get data from redis
-	if err := ur.cache.Get(ctx, cacheKeyList, &users); err == nil {
+	if err := ur.cacheSvc.Get(ctx, cacheKeyList, &users); err == nil {
 		return users, nil
 	}
 
@@ -122,7 +127,7 @@ func (ur *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 	}
 
 	// set data to redis
-	if err := ur.cache.Set(ctx, cacheKeyList, users, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyList, users, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache users in GetAllUser")
 	}
 
@@ -133,7 +138,7 @@ func (ur *userRepo) GetAllUser(ctx context.Context) ([]model.User, error) {
 func (ur *userRepo) GetUserByID(ctx context.Context, id string, user *model.User) (err error) {
 	log.Info("user id from userRepo: ", id)
 	cacheKeyID := ur.keyGen.KeyID(id)
-	if err := ur.cache.Get(ctx, cacheKeyID, &user); err == nil {
+	if err := ur.cacheSvc.Get(ctx, cacheKeyID, &user); err == nil {
 		log.Info("user from cache : ", user)
 		return nil
 	}
@@ -143,7 +148,7 @@ func (ur *userRepo) GetUserByID(ctx context.Context, id string, user *model.User
 		return err
 	}
 
-	if err := ur.cache.Set(ctx, cacheKeyID, user, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyID, user, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in GetUserByID")
 	}
 
@@ -153,7 +158,7 @@ func (ur *userRepo) GetUserByID(ctx context.Context, id string, user *model.User
 
 func (ur *userRepo) GetUserByEmail(ctx context.Context, email string, user *model.User) (err error) {
 	cacheKeyEmail := ur.keyGen.KeyField("email", email)
-	if err := ur.cache.Get(ctx, cacheKeyEmail, &user); err == nil {
+	if err := ur.cacheSvc.Get(ctx, cacheKeyEmail, &user); err == nil {
 		log.Info("user from cache : ", user)
 		return nil
 	}
@@ -163,7 +168,7 @@ func (ur *userRepo) GetUserByEmail(ctx context.Context, email string, user *mode
 		return err
 	}
 
-	if err := ur.cache.Set(ctx, cacheKeyEmail, user, 15*time.Minute); err != nil {
+	if err := ur.cacheSvc.Set(ctx, cacheKeyEmail, user, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache user in GetUserByEmail")
 	}
 

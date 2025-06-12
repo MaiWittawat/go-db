@@ -5,6 +5,13 @@ import (
 	"go-rebuild/internal/model"
 )
 
+type StockService interface {
+	Save(ctx context.Context, productID string, quantity int) error
+	IncreaseQuantity(ctx context.Context, q int, id string) error
+	DecreaseQuantity(ctx context.Context, q int, id string) error
+	Delete(ctx context.Context, id string) error
+}
+
 type OrderService interface {
 	Save(ctx context.Context, o *model.Order) error
 	Update(ctx context.Context, o *model.Order, id string) error
@@ -15,12 +22,12 @@ type OrderService interface {
 }
 
 type ProductService interface {
-	Save(ctx context.Context, p *model.Product) error
-	Update(ctx context.Context, p *model.Product, id string) error
+	Save(ctx context.Context, p *model.ProductReq, userID string) error
+	Update(ctx context.Context, p *model.ProductReq, id string, userID string) error
 	Delete(ctx context.Context, id string) error
 
-	GetAll(ctx context.Context) ([]model.Product, error)
-	GetByID(ctx context.Context, id string, product *model.Product) error
+	GetAll(ctx context.Context) ([]model.ProductRes, error)
+	GetByID(ctx context.Context, id string) (*model.ProductRes, error)
 }
 
 type UserService interface {

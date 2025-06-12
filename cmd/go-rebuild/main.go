@@ -13,9 +13,11 @@ import (
 
 	orderSvc "go-rebuild/internal/module/order"
 	productSvc "go-rebuild/internal/module/product"
+	stockSvc "go-rebuild/internal/module/stock"
 	userSvc "go-rebuild/internal/module/user"
 	orderRepo "go-rebuild/internal/repository/order"
 	productRepo "go-rebuild/internal/repository/product"
+	stockRepo "go-rebuild/internal/repository/stock"
 	userRepo "go-rebuild/internal/repository/user"
 
 	"net/http"
@@ -129,19 +131,26 @@ func main() {
 	api.RegisterAuthAPI(router, authHandler)
 	log.Printf("Startup: User and Auth services setup took %s", time.Since(start))
 
-	// Product
+
+	// Product && Stock
+	// stock
+	start = time.Now()
+	stockRepository := stockRepo.NewStockRepo(dbRepo, cacheSvc)
+	stockService := stockSvc.NewStockService(stockRepository)
+	log.Printf("Startup: Stock services setup took %s", time.Since(start))
+	// product
 	start = time.Now()
 	productRepo := productRepo.NewProductRepo(dbRepo, cacheSvc)
-	productSvc := productSvc.NewProductService(productRepo)
+	productSvc := productSvc.NewProductService(productRepo, stockService)
 	productHandler := handler.NewProductHandler(productSvc)
 	api.RegisterProductAPI(router, productHandler, authService)
 	log.Printf("Startup: Product services setup took %s", time.Since(start))
 
 	start = time.Now()
 	// Order
-	orderRepo := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
-	orderSvc := orderSvc.NewOrderService(orderRepo)
-	orderHandler := handler.NewOrderHandler(orderSvc)
+	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
+	orderService := orderSvc.NewOrderService(orderRepository)
+	orderHandler := handler.NewOrderHandler(orderService)
 	api.RegisterOrderAPI(router, orderHandler, authService)
 	log.Printf("Startup: Order services setup took %s", time.Since(start))
 
