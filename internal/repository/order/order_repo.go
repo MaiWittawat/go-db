@@ -3,9 +3,9 @@ package order
 import (
 	"context"
 
+	"go-rebuild/internal/cache"
 	dbRepo "go-rebuild/internal/db"
 	"go-rebuild/internal/model"
-	rclient "go-rebuild/internal/cache"
 	"go-rebuild/internal/repository"
 	"time"
 
@@ -15,68 +15,68 @@ import (
 type orderRepo struct {
 	db         dbRepo.DB
 	collection string
-	cache      rclient.Cache
-	keyGen     *rclient.KeyGenerator
+	cacheSvc   cache.Cache
+	keyGen     *cache.KeyGenerator
 }
 
 // ------------------------ Constructor ------------------------
-func NewOrderRepo(db dbRepo.DB, cache rclient.Cache) repository.OrderRepository {
-	keyGen := rclient.NewKeyGenerator("orders")
-	return &orderRepo{db: db, collection: "orders", cache: cache, keyGen: keyGen}
+func NewOrderRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.OrderRepository {
+	keyGen := cache.NewKeyGenerator("orders")
+	return &orderRepo{db: db, collection: "orders", cacheSvc: cacheSvc, keyGen: keyGen}
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (or *orderRepo) AddOrder(ctx context.Context, o *model.Order) error {
+func (r *orderRepo) AddOrder(ctx context.Context, o *model.Order) error {
 	// save order to db
-	if err := or.db.Create(ctx, or.collection, o); err != nil {
+	if err := r.db.Create(ctx, r.collection, o); err != nil {
 		return err
 	}
 
 	// set order cache
-	cacheKeyID := or.keyGen.KeyID(o.ID)
-	if err := or.cache.Set(ctx, cacheKeyID, o, 15*time.Minute); err != nil {
+	cacheKeyID := r.keyGen.KeyID(o.ID)
+	if err := r.cacheSvc.Set(ctx, cacheKeyID, o, 15*time.Minute); err != nil {
 		log.Warn("failed to set order cache in AddOrder: ", err)
 	}
 
 	return nil
 }
 
-func (or *orderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string) error {
+func (r *orderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string) error {
 	// update order in db
-	if err := or.db.Update(ctx, or.collection, o, id); err != nil {
+	if err := r.db.Update(ctx, r.collection, o, id); err != nil {
 		return err
 	}
 
 	// clear order cachelist in redis
-	cacheKeyList := or.keyGen.KeyList()
-	if err := or.cache.Delete(ctx, cacheKeyList); err != nil {
+	cacheKeyList := r.keyGen.KeyList()
+	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache orders in UpdateOrder: ", err)
 	}
 
 	//  clear order cacheKeyID in redis
-	cacheKeyID := or.keyGen.KeyID(id)
-	if err := or.cache.Delete(ctx, cacheKeyID); err != nil {
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
 		log.Warn("failed to clear cache order in UpdateOrder: ", err)
 	}
 
 	return nil
 }
 
-func (or *orderRepo) DeleteOrder(ctx context.Context, id string, order *model.Order) error {
+func (r *orderRepo) DeleteOrder(ctx context.Context, id string, order *model.Order) error {
 	// delete order in db
-	if err := or.db.Delete(ctx, or.collection, order, id); err != nil {
+	if err := r.db.Delete(ctx, r.collection, order, id); err != nil {
 		return err
 	}
 
 	// clear cache in redis
-	cacheKeyID := or.keyGen.KeyID(id)
-	if err := or.cache.Delete(ctx, cacheKeyID); err != nil {
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
 		log.Warn("failed to clear cache order in DeleteOrder: ", err)
 	}
 
 	// clear cache in redis
-	cacheKeyList := or.keyGen.KeyList()
-	if err := or.cache.Delete(ctx, cacheKeyList); err != nil {
+	cacheKeyList := r.keyGen.KeyList()
+	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
 		log.Warn("failed to clear cache orders in DeleteOrder: ", err)
 	}
 
@@ -84,46 +84,46 @@ func (or *orderRepo) DeleteOrder(ctx context.Context, id string, order *model.Or
 }
 
 // ------------------------ Method Basic Query ------------------------
-func (or *orderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
+func (r *orderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
 	var orders []model.Order
-	cacheKeyList := or.keyGen.KeyList()
+	cacheKeyList := r.keyGen.KeyList()
 
 	// get orders in redis
-	if err := or.cache.Get(ctx, cacheKeyList, &orders); err == nil {
+	if err := r.cacheSvc.Get(ctx, cacheKeyList, &orders); err == nil {
 		log.Info("get orders from cache: ", orders)
 		return orders, nil
 	}
 
 	// get orders in db
-	if err := or.db.GetAll(ctx, or.collection, &orders); err != nil {
+	if err := r.db.GetAll(ctx, r.collection, &orders); err != nil {
 		log.Info("get orders from db")
 		return nil, err
 	}
 
 	// set orders cache
-	if err := or.cache.Set(ctx, cacheKeyList, orders, 15*time.Minute); err != nil {
+	if err := r.cacheSvc.Set(ctx, cacheKeyList, orders, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache orders in GetAllOrder: ", err)
 	}
 
 	return orders, nil
 }
 
-func (or *orderRepo) GetOrderByID(ctx context.Context, id string, order *model.Order) (err error) {
+func (r *orderRepo) GetOrderByID(ctx context.Context, id string, order *model.Order) (err error) {
 	// get order from redis
-	cacheKeyID := or.keyGen.KeyID(id)
-	if err = or.cache.Get(ctx, cacheKeyID, &order); err == nil {
+	cacheKeyID := r.keyGen.KeyID(id)
+	if err = r.cacheSvc.Get(ctx, cacheKeyID, &order); err == nil {
 		log.Info("get order from cache: ", order)
 		return nil
 	}
 
 	// get order from db
-	if err = or.db.GetByID(ctx, or.collection, id, order); err != nil {
+	if err = r.db.GetByID(ctx, r.collection, id, order); err != nil {
 		log.Info("get order from db: ", order)
 		return err
 	}
 
 	// set order cache in redis
-	if err := or.cache.Set(ctx, cacheKeyID, order, 15*time.Minute); err != nil {
+	if err := r.cacheSvc.Set(ctx, cacheKeyID, order, 15*time.Minute); err != nil {
 		log.Warn("failed to set cache order in GetOrderByID: ", err)
 	}
 
