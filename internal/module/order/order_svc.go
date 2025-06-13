@@ -104,7 +104,7 @@ func (s *orderService) Update(ctx context.Context, orderReq *model.Order, id str
 	if product.ID != currentOrder.ID {
 		return ErrChangeProduct
 	}
-	
+
 	currentOrder.UpdatedAt = time.Now()
 	if err := s.orderRepo.UpdateOrder(ctx, &currentOrder, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update order")
@@ -115,7 +115,7 @@ func (s *orderService) Update(ctx context.Context, orderReq *model.Order, id str
 	return nil
 }
 
-func (s *orderService) Delete(ctx context.Context, id string) error {
+func (s *orderService) Delete(ctx context.Context, id string, userID string) error {
 	var baseLogFields = log.Fields{
 		"order_id": id,
 		"layer":    "order_service",
@@ -126,6 +126,11 @@ func (s *orderService) Delete(ctx context.Context, id string) error {
 	if err := s.orderRepo.GetOrderByID(ctx, id, &order); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get order by id")
 		return ErrOrderNotFound
+	}
+
+	if order.UserID != userID {
+		log.WithError(errors.New("no permission")).WithFields(baseLogFields).Error("can't delete another order")
+		return ErrDeleteOrder
 	}
 
 	if err := s.orderRepo.DeleteOrder(ctx, id, &order); err != nil {

@@ -48,7 +48,8 @@ func (h *OrderHandler) UpdateOrder(c *gin.Context) {
 }
 
 func (h *OrderHandler) DeleteOrder(c *gin.Context) {
-	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
+	userID := c.GetString("user_id")
+	if err := h.service.Delete(c.Request.Context(), c.Param("id"), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
