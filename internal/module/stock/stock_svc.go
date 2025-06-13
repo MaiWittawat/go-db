@@ -13,6 +13,12 @@ import (
 )
 
 var (
+	// stock queue
+	ExchangeName = "stock_exchange"
+	ExchangeType = "direct"
+	QueueName    = "stock_queue"
+
+	// error
 	ErrCreateStock   = errors.New("fail to create stock")
 	ErrUpdateStock   = errors.New("fail to update stock")
 	ErrDeleteStock   = errors.New("fail to delete stock")
@@ -54,12 +60,33 @@ func (s *stockService) Save(ctx context.Context, productID string, quantity int)
 	return nil
 }
 
+func (s *stockService) Update(ctx context.Context, productID string, quantity int) error {
+	var currentStock model.Stock
+	var baseLogFields = log.Fields{
+		"product_id": productID,
+		"layer":      "stock_service",
+		"operation":  "stock.update",
+	}
+	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("failed to get stock by product id")
+		return ErrUpdateStock
+	}
+
+	currentStock.SetQuantity(quantity)
+	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("failed to update stock")
+		return ErrUpdateStock
+	}
+
+	return nil
+}
+
 func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, productID string) error {
 	var currentStock model.Stock
 	var baseLogFields = log.Fields{
-		"product_id":  productID,
-		"layer":     "stock_service",
-		"operation": "stock.update",
+		"product_id": productID,
+		"layer":      "stock_service",
+		"operation":  "stock.increase",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
@@ -71,6 +98,7 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 	currentStock.UpdatedAt = time.Now()
 
 	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("stock updated fail")
 		return ErrUpdateStock
 	}
 
@@ -80,9 +108,9 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 func (s *stockService) DecreaseQuantity(ctx context.Context, quantity int, productID string) error {
 	var currentStock model.Stock
 	var baseLogFields = log.Fields{
-		"product_id":  productID,
-		"layer":     "stock_service",
-		"operation": "stock.update",
+		"product_id": productID,
+		"layer":      "stock_service",
+		"operation":  "stock.decrease",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {

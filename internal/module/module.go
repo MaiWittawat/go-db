@@ -7,6 +7,7 @@ import (
 
 type StockService interface {
 	Save(ctx context.Context, productID string, quantity int) error
+	Update(ctx context.Context, productID string, quantity int) error
 	IncreaseQuantity(ctx context.Context, q int, id string) error
 	DecreaseQuantity(ctx context.Context, q int, id string) error
 	Delete(ctx context.Context, id string) error

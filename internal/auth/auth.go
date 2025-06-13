@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	// queue
+	// user queue
 	ExchangeName = "user_exchange"
 	ExchangeType = "direct"
 	QueueName    = "user_queue"
@@ -171,7 +171,7 @@ func (a *authService) Register(ctx context.Context, user *model.User) error {
 		return err
 	}
 
-	packet := model.EnvelopeBroker{
+	packet := model.Envelope{
 		Type:    "create_user",
 		Payload: body,
 	}

@@ -35,14 +35,17 @@ import (
 )
 
 var (
-	mgDBInstant        *mongo.Client
-	pgDBInstant        *gorm.DB
-	redisClientInstant *redis.Client
-	rabbitMQConn       *amqp.Connection
-	rabbitMQChannel    *amqp.Channel
+	mgDBInstant         *mongo.Client
+	pgDBInstant         *gorm.DB
+	redisClientInstant  *redis.Client
+	rabbitMQConn        *amqp.Connection
+	producerChannel     *amqp.Channel
+	userConsumeChannel  *amqp.Channel
+	stockConsumeChannel *amqp.Channel
 )
 
 func main() {
+	// ------------------------------ Setup Config ------------------------------
 	overallStart := time.Now()
 	start := time.Now()
 
@@ -55,10 +58,11 @@ func main() {
 
 	if appcore_config.Config.Mode == "develop" {
 		log.SetLevel(log.InfoLevel)
-	}else {
+	} else {
 		log.SetLevel(log.WarnLevel)
 	}
 
+	// ------------------------------ Init db ------------------------------
 	var dbRepo db.DB
 	var err error
 	useMongo := false
@@ -73,7 +77,7 @@ func main() {
 			log.Panic("fail to connect mongodb: ", err)
 		}
 
-		log.Printf("Startup: MongoDB connection took %s", time.Since(start))
+		log.Printf("[Startup]: MongoDB connection took %s", time.Since(start))
 		dbRepo = db.NewMongoRepo(mgDBInstant, "miniproject")
 
 	} else {
@@ -84,42 +88,55 @@ func main() {
 			log.Panic("fail to connect psqldb: ", err)
 		}
 
-		log.Printf("Startup: PostgreSQL connection took %s", time.Since(start))
+		log.Printf("[Startup]: PostgreSQL connection took %s", time.Since(start))
 		dbRepo = db.NewPsqlRepo(pgDBInstant)
 	}
 
+	// ------------------------------ Init 3rd party ------------------------------
 	// init redis client
 	start = time.Now()
 	redisClientInstant = rclient.InitRedisClient()
-	log.Printf("Startup: Redis client initialization took %s", time.Since(start))
+	log.Printf("[Startup]: Redis client initialization took %s", time.Since(start))
 	cacheSvc := rclient.NewCacheService(redisClientInstant)
 	router := gin.Default()
 
 	// init mail client
 	start = time.Now()
 	mailClient := mail.InitMailClient()
-	log.Printf("Startup: Mail client initialization took %s", time.Since(start))
+	log.Printf("[Startup]: Mail client initialization took %s", time.Since(start))
 	mailService := mail.NewMailService(mailClient)
 
 	// init rabbitmq
 	start = time.Now()
+
+	// open 1 connection
 	rabbitMQConn = messagebroker.InitRabbitmq()
-	log.Printf("Startup: RabbitMQ connection took %s", time.Since(start))
+	log.Printf("[Startup]: RabbitMQ connection took %s", time.Since(start))
+
+	// open channel depen on service(use-case)
+	start = time.Now()
+
+	// rabbitMQChannel = messagebroker.OpenChannel(rabbitMQConn)
+	producerChannel = messagebroker.OpenChannel(rabbitMQConn)
+	userConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
+	stockConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
+
+	log.Printf("[Startup]: RabbitMQ channel open took %s", time.Since(start))
 
 	start = time.Now()
-	rabbitMQChannel = messagebroker.OpenChannel(rabbitMQConn)
-	log.Printf("Startup: RabbitMQ channel open took %s", time.Since(start))
+	// user set rabbitmq up
+	userCreateQueueSetup(userConsumeChannel)
+	userUpdateQueueSetup(userConsumeChannel)
+	// stock set rabbitmq up
+	stockCreateQueueSetup(stockConsumeChannel)
+	stockUpdateQueueSetup(stockConsumeChannel)
+	log.Printf("[Startup]: RabbitMQ queue setup took %s", time.Since(start))
 
 	start = time.Now()
-	userCreateQueueSetup(rabbitMQChannel)
-	userUpdateQueueSetup(rabbitMQChannel)
-	log.Printf("Startup: RabbitMQ queue setup took %s", time.Since(start))
+	producerService := messagebroker.NewProducerService(producerChannel)
+	log.Printf("[Startup]: Message broker services creation took %s", time.Since(start))
 
-	start = time.Now()
-	producerService := messagebroker.NewProducerService(rabbitMQChannel)
-	consumeUserService := messagebroker.NewConsumerService(rabbitMQConn, rabbitMQChannel, mailService)
-	log.Printf("Startup: Message broker services creation took %s", time.Since(start))
-
+	// ------------------------------ Start service ------------------------------
 	// User and Auth
 	start = time.Now()
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
@@ -129,31 +146,35 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	api.RegisterUserAPI(router, userHandler, authService)
 	api.RegisterAuthAPI(router, authHandler)
-	log.Printf("Startup: User and Auth services setup took %s", time.Since(start))
-
+	log.Printf("[Startup]: User and Auth services setup took %s", time.Since(start))
 
 	// Product && Stock
 	// stock
 	start = time.Now()
 	stockRepository := stockRepo.NewStockRepo(dbRepo, cacheSvc)
 	stockService := stockSvc.NewStockService(stockRepository)
-	log.Printf("Startup: Stock services setup took %s", time.Since(start))
+	log.Printf("[Startup]: Stock services setup took %s", time.Since(start))
+
 	// product
 	start = time.Now()
 	productRepo := productRepo.NewProductRepo(dbRepo, cacheSvc)
-	productSvc := productSvc.NewProductService(productRepo, stockService)
+	productSvc := productSvc.NewProductService(productRepo, producerService)
 	productHandler := handler.NewProductHandler(productSvc)
 	api.RegisterProductAPI(router, productHandler, authService)
-	log.Printf("Startup: Product services setup took %s", time.Since(start))
+	log.Printf("[Startup]: Product services setup took %s", time.Since(start))
 
 	start = time.Now()
 	// Order
 	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
-	orderService := orderSvc.NewOrderService(orderRepository)
+	orderService := orderSvc.NewOrderService(orderRepository,productSvc, producerService)
 	orderHandler := handler.NewOrderHandler(orderService)
 	api.RegisterOrderAPI(router, orderHandler, authService)
-	log.Printf("Startup: Order services setup took %s", time.Since(start))
+	log.Printf("[Startup]: Order services setup took %s", time.Since(start))
 
+	userConsumeService := messagebroker.NewEmailConsumerService(rabbitMQConn, userConsumeChannel, mailService)
+	stockConsumeService := messagebroker.NewStockComsumeService(rabbitMQConn, stockConsumeChannel, stockService)
+
+	// ------------------------------ Start server ------------------------------
 	server := &http.Server{
 		Addr:    ":3000",
 		Handler: router,
@@ -162,26 +183,31 @@ func main() {
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
-				log.Info("Server closed gracefully")
+				log.Info("[Down]: Server closed gracefully")
 			} else {
 				log.Fatalf("listen: %s\n", err)
 			}
 		}
 	}()
 
-	go consumeUserService.Consuming(userSvc.QueueName, "user_consume")
+	go userConsumeService.Consuming(userSvc.QueueName, "user_consume")
+	go stockConsumeService.Consuming(stockSvc.QueueName, "stock_consume")
 
-	log.Printf("Overall application startup took %s", time.Since(overallStart))
-
+	log.Printf("[Time]: Overall application [startup] took %s", time.Since(overallStart))
+	
+	// ------------------------------ Shutdown ------------------------------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info("Shutdown signal received")
+	log.Info("[Signal]: shutdown signal received")
 
+	// call shutdown all service
 	gracefulShutdown(shutdownCtx, server)
 
 }
 
+
+// ------------------------------ Rabbitmq setup channel function ------------------------------
 func userCreateQueueSetup(ch *amqp.Channel) {
 	messagebroker.DeclareExchange(ch, userSvc.ExchangeName, userSvc.ExchangeType)
 	messagebroker.DeclareQueue(ch, userSvc.QueueName)
@@ -194,45 +220,69 @@ func userUpdateQueueSetup(ch *amqp.Channel) {
 	messagebroker.BindQueueToExchange(ch, userSvc.QueueName, userSvc.ExchangeName, "user.update")
 }
 
-func gracefulShutdown(ctx context.Context, server *http.Server) {
-	log.Info("Shutting down server...")
-	// close HTTP server
-	if err := server.Shutdown(ctx); err != nil {
-		log.Errorf("HTTP server Shutdown: %v", err)
+func stockCreateQueueSetup(ch *amqp.Channel) {
+	messagebroker.DeclareExchange(ch, stockSvc.ExchangeName, stockSvc.ExchangeType)
+	messagebroker.DeclareQueue(ch, stockSvc.QueueName)
+	messagebroker.BindQueueToExchange(ch, stockSvc.QueueName, stockSvc.ExchangeName, "stock.create")
+}
+
+func stockUpdateQueueSetup(ch *amqp.Channel) {
+	messagebroker.DeclareExchange(ch, stockSvc.ExchangeName, stockSvc.ExchangeType)
+	messagebroker.DeclareQueue(ch, stockSvc.QueueName)
+	messagebroker.BindQueueToExchange(ch, stockSvc.QueueName, stockSvc.ExchangeName, "stock.update")
+}
+
+
+// ------------------------------ Shutdown function ------------------------------
+func rabbitShutdown() {
+	// close rabbitmq producer consume channel
+	if producerChannel != nil {
+		if err := producerChannel.Close(); err != nil {
+			log.Errorf("[RabbitMQ] producer consume channel shutdown error: %v", err)
+		}
 	}
 
+	// close rabbitmq user consume channel
+	if userConsumeChannel != nil {
+		if err := userConsumeChannel.Close(); err != nil {
+			log.Errorf("[RabbitMQ] user consume channel shutdown error: %v", err)
+		}
+	}
+
+	// close rabbitmq user consume channel
+	if stockConsumeChannel != nil {
+		if err := stockConsumeChannel.Close(); err != nil {
+			log.Errorf("[RabbitMQ] stock consume channel shutdown error: %v", err)
+		}
+	}
+
+	// close rabbitmq connection
+	if rabbitMQConn != nil {
+		if err := rabbitMQConn.Close(); err != nil {
+			log.Errorf("[RabbitMQ] connection shutdown error: %v", err)
+		}
+	}
+
+	log.Info("[Down]: Rabbitmq closed")
+}
+
+func redisShutdown() {
 	// close Redis
 	if redisClientInstant != nil {
 		if err := redisClientInstant.Close(); err != nil {
-			log.Errorf("Redis shutdown error: %v", err)
-		} else {
-			log.Info("Redis closed")
+			log.Errorf("[Redis] shutdown error: %v", err)
 		}
 	}
 
-	// close rabbitmq
-	if rabbitMQChannel != nil {
-		if err := rabbitMQChannel.Close(); err != nil {
-			log.Errorf("RabbitMQ channel shutdown error: %v", err)
-		} else {
-			log.Info("RabbitMQ channel closed")
-		}
-	}
-	if rabbitMQConn != nil {
-		if err := rabbitMQConn.Close(); err != nil {
-			log.Errorf("RabbitMQ connection shutdown error: %v", err)
-		} else {
-			log.Info("RabbitMQ connection closed")
-		}
-	}
+	log.Info("[Down]: Redis closed")
+}
 
-	// clse MongoDB
+func dbShotdown(ctx context.Context) {
+	// close MongoDB
 	if mgDBInstant != nil {
 		if err := mgDBInstant.Disconnect(ctx); err != nil {
-			log.Errorf("MongoDB shutdown error: %v", err)
-		} else {
-			log.Info("MongoDB disconnected")
-		}
+			log.Errorf("[MongoDB] shutdown error: %v", err)
+		} 
 	}
 
 	// close Postgres
@@ -240,12 +290,21 @@ func gracefulShutdown(ctx context.Context, server *http.Server) {
 		sqlDB, err := pgDBInstant.DB()
 		if err == nil {
 			if err := sqlDB.Close(); err != nil {
-				log.Errorf("Postgres shutdown error: %v", err)
-			} else {
-				log.Info("Postgres closed")
-			}
+				log.Errorf("[Postgres] shutdown error: %v", err)
+			} 
 		}
 	}
+	log.Info("[Down]: DB closed")
+}
 
-	log.Info("Graceful shutdown complete.")
+func gracefulShutdown(ctx context.Context, server *http.Server) {
+	log.Info("[Down]: Shutting down server...")
+	// close HTTP server
+	if err := server.Shutdown(ctx); err != nil {
+		log.Errorf("HTTP server Shutdown: %v", err)
+	}
+
+	rabbitShutdown()
+	redisShutdown()
+	dbShotdown(ctx)
 }

@@ -3,9 +3,11 @@ package product
 import (
 	"context"
 	"errors"
+	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
+	utils "go-rebuild/internal/utlis"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -13,37 +15,39 @@ import (
 )
 
 var (
-	ErrCreateProduct = errors.New("fail to create product")
-	ErrUpdateProduct = errors.New("fail to update product")
-	ErrDeleteProduct = errors.New("fail to delete product")
+	// stock queue
+	ExchangeName = "stock_exchange"
+	ExchangeType = "direct"
+	QueueName    = "stock_queue"
 
+	// error
+	ErrCreateProduct   = errors.New("fail to create product")
+	ErrUpdateProduct   = errors.New("fail to update product")
+	ErrDeleteProduct   = errors.New("fail to delete product")
 	ErrProductNotFound = errors.New("product not found")
 	ErrPermission      = errors.New("no permission")
 )
 
 type productService struct {
 	productRepo repository.ProductRepository
-	stockSvc    module.StockService
+	producerSvc messagebroker.ProducerService
 }
 
 // ------------------------ Constructor ------------------------
-func NewProductService(productRepo repository.ProductRepository, stockSvc module.StockService) module.ProductService {
+func NewProductService(productRepo repository.ProductRepository, producerSvc messagebroker.ProducerService) module.ProductService {
 	return &productService{
 		productRepo: productRepo,
-		stockSvc:    stockSvc,
+		producerSvc: producerSvc,
 	}
 }
 
 // ------------------------ Method Basic CUD ------------------------
 func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userID string) error {
-	log.Println("productReq: ", pReq)
-
 	product := pReq.ToProduct()
 	product.ID = primitive.NewObjectID().Hex()
 	product.CreatedBy = userID
 	product.CreatedAt = time.Now()
 	product.UpdatedAt = product.CreatedAt
-
 
 	var baseLogFields = log.Fields{
 		"product_id": product.ID,
@@ -55,12 +59,18 @@ func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userI
 		log.WithError(err).WithFields(baseLogFields).Error("failed to save product")
 		return ErrCreateProduct
 	}
+	log.Printf("[Service]: product {%s} created success", product.ID)
 
-	if err := s.stockSvc.Save(ctx, product.ID, pReq.Quantity); err != nil {
+	packetByte, err := utils.BuildPacket("create_stock", &model.Stock{ProductID: product.ID, Quantity: pReq.Quantity})
+	if err != nil {
 		return err
 	}
 
-	log.Info("product and stock created success:")
+	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.create")
+	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -71,6 +81,10 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 		"operation":  "product_update",
 	}
 	updateProduct := pReq.ToProduct()
+
+	if pReq.Quantity < 0 {
+		return ErrUpdateProduct
+	}
 
 	if err := updateProduct.Verify(); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to verify product")
@@ -87,31 +101,25 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 		return ErrPermission
 	}
 
-	if updateProduct.Title != "" {
-		currentProduct.Title = updateProduct.Title
-	}
-
-	if updateProduct.Price != 0 {
-		currentProduct.Price = updateProduct.Price
-	}
-
-	if updateProduct.Detail != "" {
-		currentProduct.Detail = updateProduct.Detail
-	}
-
-	currentProduct.UpdatedAt = time.Now()
+	currentProduct.UpdateNotNilField(pReq)
 	if err := s.productRepo.UpdateProduct(ctx, &currentProduct, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update product")
 		return ErrUpdateProduct
 	}
 
-	if pReq.Quantity != 0 {
-		if err := s.stockSvc.IncreaseQuantity(ctx, pReq.Quantity, id); err != nil {
-			return err
-		}
+	packetByte, err := utils.BuildPacket("update_stock", &model.Stock{ProductID: currentProduct.ID, Quantity: pReq.Quantity})
+	if err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("failed to build stock packet")
+		return err
 	}
 
-	log.Info("product updated successfully:", currentProduct)
+	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.update")
+	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+		log.WithError(err).Error("fail to publish")
+		return ErrUpdateProduct
+	}
+
+	log.Printf("[Service]: product {%s} updated successfully\n", currentProduct.ID)
 	return nil
 }
 
@@ -133,7 +141,7 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 		return ErrDeleteProduct
 	}
 
-	log.Info("product deleted success:", product)
+	log.Printf("[Service]: product {%s} deleted success\n", product.ID)
 	return nil
 }
 
@@ -156,7 +164,7 @@ func (s *productService) GetAll(ctx context.Context) ([]model.ProductRes, error)
 		productsRes = append(productsRes, *productRes)
 	}
 
-	log.Info("get all product success")
+	log.Info("[Service]: get all product success")
 	return productsRes, nil
 }
 
@@ -174,6 +182,6 @@ func (s *productService) GetByID(ctx context.Context, id string) (*model.Product
 	}
 
 	productRes := product.ToProductRes()
-	log.Info("get product by id success:", product)
+	log.Printf("[Service]: get product {%s} success\n", product.ID)
 	return productRes, nil
 }

@@ -72,14 +72,14 @@ func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFu
 		role, err := authSvc.GetRoleUserByID(c, userID)
 		if err != nil {
 			log.WithError(err).WithFields(baseLogFields).Error("user not found")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user not found e"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user not found"})
 			return
 		}
 
 		// ตรวจว่า role ตรงไหม
 		for _, allowed := range allowedRoles {
 			if *role == allowed {
-				log.Info("in middleware check role pass")
+				log.Info("[Middleware]: Role pass")
 				c.Next()
 				return
 			}

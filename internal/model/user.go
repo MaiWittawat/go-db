@@ -30,6 +30,22 @@ func (u *User) SetPassword(password string) error {
 	return nil
 }
 
+func (u *User) SetDefaultNotNilField(req *User){
+	if req.Username != "" {
+		u.Username = req.Username
+	}
+
+	if req.Email != "" {
+		u.Email = req.Email
+	}
+
+	if req.Password != "" {
+		u.SetPassword(req.Password)
+	}
+
+	u.UpdatedAt = time.Now()
+}
+
 // ------------------------ Public Method ------------------------
 func (u *User) Verify() error {
 	if u.Username != "" {

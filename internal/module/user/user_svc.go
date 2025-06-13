@@ -2,13 +2,12 @@ package user
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
-	"time"
+	utils "go-rebuild/internal/utlis"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -30,14 +29,14 @@ var (
 )
 
 type userService struct {
-	userRepo repository.UserRepository
+	userRepo    repository.UserRepository
 	producerSvc messagebroker.ProducerService
 }
 
 // ------------------------ Constructor ------------------------
 func NewUserService(userRepo repository.UserRepository, producerSvc messagebroker.ProducerService) module.UserService {
 	return &userService{
-		userRepo: userRepo,
+		userRepo:    userRepo,
 		producerSvc: producerSvc,
 	}
 }
@@ -61,45 +60,20 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 		return ErrUserNotFound
 	}
 
-	if req.Username != "" {
-		currentUser.Username = req.Username
-	}
-
-	if req.Email != "" {
-		currentUser.Email = req.Email
-	}
-
-	if req.Password != "" {
-		if err := currentUser.SetPassword(req.Password); err != nil {
-			log.WithError(err).WithFields(baseLogFields).Error("failed to hash password")
-			return ErrHashPassword
-		}
-	}
-
-	currentUser.UpdatedAt = time.Now()
+	currentUser.SetDefaultNotNilField(req)
 	if err := us.userRepo.UpdateUser(ctx, &currentUser, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update user")
 		return ErrUpdateUser
 	}
 
-	body, err := json.Marshal(currentUser)
-	if err != nil {
-		return err
-	}
-
-	packet := model.EnvelopeBroker{
-		Type:    "update_user",
-		Payload: body,
-	}
-
-	packetByte, err := json.Marshal(packet)
+	packetByte, err := utils.BuildPacket("update_user", currentUser)
 	if err != nil {
 		return err
 	}
 
 	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "user.update")
 	if err := us.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
-		log.WithError(err).WithFields(baseLogFields)
+		log.WithError(err).WithFields(baseLogFields).Error("fail to publish")
 		return err
 	}
 

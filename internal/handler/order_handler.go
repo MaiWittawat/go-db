@@ -17,12 +17,14 @@ func NewOrderHandler(service module.OrderService) *OrderHandler {
 }
 
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
+	userID := c.GetString("user_id")
 	var order model.Order
 	if err := c.ShouldBindJSON(&order); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	order.UserID = userID
 	if err := h.service.Save(c.Request.Context(), &order); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

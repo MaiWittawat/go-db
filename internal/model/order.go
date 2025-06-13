@@ -12,9 +12,10 @@ var (
 
 type Order struct {
 	ID        string     `json:"-" gorm:"column:id;primaryKey" bson:"_id,omitempty"`
-	UserID    string     `json:"user_id" gorm:"column:user_id" bson:"user_id"`
+	UserID    string     `json:"-" gorm:"column:user_id" bson:"user_id"`
 	ProductID string     `json:"product_id" gorm:"column:product_id" bson:"product_id"`
 	Quantity  int        `json:"quantity" gorm:"quantity" bson:"quantity"`
+	Price     int        `json:"-" gorm:"column:price" bson:"price"`
 	Status    string     `json:"-" gorm:"column:status" bson:"status"`
 	Amount    int        `json:"-" gorm:"column:amount" bson:"amount"`
 	CreatedAt time.Time  `json:"-" gorm:"column:created_at" bson:"created_at"`
@@ -31,7 +32,6 @@ func (o *Order) VerifyNil(order Order) error {
 	}
 	return nil
 }
-
 
 // ------------------------ Private Method ------------------------
 // status check or someting

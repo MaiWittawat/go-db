@@ -78,6 +78,22 @@ func (p *Product) Verify() error {
 	return nil
 }
 
+func (p *Product) UpdateNotNilField(pReq *ProductReq) {
+	if pReq.Title != "" {
+		p.Title = pReq.Title
+	}
+
+	if pReq.Price != 0 {
+		p.Price = pReq.Price
+	}
+
+	if pReq.Detail != "" {
+		p.Detail = pReq.Detail
+	}
+
+	p.UpdatedAt = time.Now()
+}
+
 // ------------------------ Private Method ------------------------
 func (p *Product) isValidTitle() bool {
 	return len(p.Title) >= 2

@@ -82,7 +82,7 @@ func DeclareExchange(ch *amqp.Channel, exchangeName, exchangeType string) {
 		nil,   // arguments
 	)
 	HandleError(err, "Failed to declare an exchange")
-	log.Printf("Exchange '%s' declared successfully\n", exchangeName)
+	log.Printf("[Startup]: Exchange '%s' declared successfully\n", exchangeName)
 }
 
 func BindQueueToExchange(ch *amqp.Channel, queueName, exchangeName, routingKey string) {
@@ -94,5 +94,5 @@ func BindQueueToExchange(ch *amqp.Channel, queueName, exchangeName, routingKey s
 		nil,          // arguments
 	)
 	HandleError(err, "Failed to bind a queue to an exchange")
-	log.Printf("Queue '%s' bound to Exchange '%s' with RoutingKey '%s'\n", queueName, exchangeName, routingKey)
+	log.Printf("[Startup]: Queue '%s' bound to Exchange '%s' with RoutingKey '%s'\n", queueName, exchangeName, routingKey)
 }
