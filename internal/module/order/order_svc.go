@@ -111,7 +111,7 @@ func (s *orderService) Update(ctx context.Context, orderReq *model.Order, id str
 		return ErrUpdateOrder
 	}
 
-	log.Info("order updated success:", currentOrder)
+	log.Info("[Service]: order updated success:", currentOrder)
 	return nil
 }
 
@@ -132,7 +132,7 @@ func (s *orderService) Delete(ctx context.Context, id string) error {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to delete order")
 		return ErrDeleteOrder
 	}
-	log.Info("order deleted success:", order)
+	log.Info("[Service]: order deleted success:", order)
 
 	packetByte, err := utils.BuildPacket("increase_stock", model.Stock{ProductID: order.ProductID, Quantity: order.Quantity})
 	if err != nil {
@@ -160,7 +160,7 @@ func (s *orderService) GetAll(ctx context.Context) ([]model.Order, error) {
 		return nil, ErrOrderNotFound
 	}
 
-	log.Info("get all order success")
+	log.Info("[Service]: get all order success")
 	return orders, nil
 }
 
@@ -177,6 +177,6 @@ func (s *orderService) GetByID(ctx context.Context, id string, order *model.Orde
 		return ErrOrderNotFound
 	}
 
-	log.Info("get order by id success:", order)
+	log.Info("[Service]: get order by id success:", order)
 	return nil
 }

@@ -35,7 +35,7 @@ func (r *orderRepo) AddOrder(ctx context.Context, o *model.Order) error {
 	// set order cache
 	cacheKeyID := r.keyGen.KeyID(o.ID)
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, o, 15*time.Minute); err != nil {
-		log.Warn("failed to set order cache in AddOrder: ", err)
+		log.Warn("[Repo]: failed to set order cache in AddOrder: ", err)
 	}
 
 	return nil
@@ -50,13 +50,13 @@ func (r *orderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string) 
 	// clear order cachelist in redis
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
-		log.Warn("failed to clear cache orders in UpdateOrder: ", err)
+		log.Warn("[Repo]: failed to clear cache orders in UpdateOrder: ", err)
 	}
 
 	//  clear order cacheKeyID in redis
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
-		log.Warn("failed to clear cache order in UpdateOrder: ", err)
+		log.Warn("[Repo]: failed to clear cache order in UpdateOrder: ", err)
 	}
 
 	return nil
@@ -71,13 +71,13 @@ func (r *orderRepo) DeleteOrder(ctx context.Context, id string, order *model.Ord
 	// clear cache in redis
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
-		log.Warn("failed to clear cache order in DeleteOrder: ", err)
+		log.Warn("[Repo]: failed to clear cache order in DeleteOrder: ", err)
 	}
 
 	// clear cache in redis
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
-		log.Warn("failed to clear cache orders in DeleteOrder: ", err)
+		log.Warn("[Repo]: failed to clear cache orders in DeleteOrder: ", err)
 	}
 
 	return nil
@@ -90,19 +90,19 @@ func (r *orderRepo) GetAllOrder(ctx context.Context) ([]model.Order, error) {
 
 	// get orders in redis
 	if err := r.cacheSvc.Get(ctx, cacheKeyList, &orders); err == nil {
-		log.Info("get orders from cache: ", orders)
+		log.Info("[Repo]: get orders from cache: ", orders)
 		return orders, nil
 	}
 
 	// get orders in db
 	if err := r.db.GetAll(ctx, r.collection, &orders); err != nil {
-		log.Info("get orders from db")
+		log.Info("[Repo]: get orders from db")
 		return nil, err
 	}
 
 	// set orders cache
 	if err := r.cacheSvc.Set(ctx, cacheKeyList, orders, 15*time.Minute); err != nil {
-		log.Warn("failed to set cache orders in GetAllOrder: ", err)
+		log.Warn("[Repo]: failed to set cache orders in GetAllOrder: ", err)
 	}
 
 	return orders, nil
@@ -112,19 +112,19 @@ func (r *orderRepo) GetOrderByID(ctx context.Context, id string, order *model.Or
 	// get order from redis
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err = r.cacheSvc.Get(ctx, cacheKeyID, &order); err == nil {
-		log.Info("get order from cache: ", order)
+		log.Info("[Repo]: get order from cache: ", order)
 		return nil
 	}
 
 	// get order from db
 	if err = r.db.GetByID(ctx, r.collection, id, order); err != nil {
-		log.Info("get order from db: ", order)
+		log.Info("[Repo]: get order from db: ", order)
 		return err
 	}
 
 	// set order cache in redis
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, order, 15*time.Minute); err != nil {
-		log.Warn("failed to set cache order in GetOrderByID: ", err)
+		log.Warn("[Repo]: failed to set cache order in GetOrderByID: ", err)
 	}
 
 	return nil

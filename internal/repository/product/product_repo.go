@@ -39,13 +39,13 @@ func (r *productRepo) AddProduct(ctx context.Context, p *model.Product) error {
 	// clear last cache list
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
-		log.Warn("failed to clear cache productslist in AddProduct: ", err)
+		log.Warn("[Repo]: failed to clear cache productslist in AddProduct: ", err)
 	}
 
 	// set cache
 	cacheKeyID := r.keyGen.KeyID(p.ID)
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, p, 15*time.Minute); err != nil {
-		log.Warn("failed to set product cacheKeyID in AddProduct: ", err)
+		log.Warn("[Repo]: failed to set product cacheKeyID in AddProduct: ", err)
 	}
 
 	return nil
@@ -60,13 +60,13 @@ func (r *productRepo) UpdateProduct(ctx context.Context, p *model.Product, id st
 	// clear old cache product list
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
-		log.Warn("failed to clear cache products list in UpdateProduct: ", err)
+		log.Warn("[Repo]: failed to clear cache products list in UpdateProduct: ", err)
 	}
 
 	// set cache
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, p, 15*time.Minute); err != nil {
-		log.Warn("failed to set product cacheKeyID in UpdateProduct: ", err)
+		log.Warn("[Repo]: failed to set product cacheKeyID in UpdateProduct: ", err)
 	}
 
 	return nil
@@ -81,13 +81,13 @@ func (r *productRepo) DeleteProduct(ctx context.Context, id string, product *mod
 	// clear cache list in redis
 	cacheKeyList := r.keyGen.KeyList()
 	if err := r.cacheSvc.Delete(ctx, cacheKeyList); err != nil {
-		log.Warn("failed to clear cache products in DeleteProduct: ", err)
+		log.Warn("[Repo]: failed to clear cache products in DeleteProduct: ", err)
 	}
 
 	// clear cache key id in redis
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyID); err != nil {
-		log.Warn("failed to clear cache product in DeleteProduct: ", err)
+		log.Warn("[Repo]: failed to clear cache product in DeleteProduct: ", err)
 	}
 
 	return nil
@@ -100,19 +100,19 @@ func (r *productRepo) GetAllProduct(ctx context.Context) ([]model.Product, error
 
 	// get products from redis
 	if err := r.cacheSvc.Get(ctx, cacheKeyList, &products); err == nil {
-		log.Info("products from redis: ", products)
+		log.Info("[Repo]: products from redis: ", products)
 		return products, nil
 	}
 
 	// get products from db
 	if err := r.db.GetAll(ctx, r.collection, &products); err != nil {
-		log.Info("products from db: ", products)
+		log.Info("[Repo]: products from db: ", products)
 		return nil, err
 	}
 
 	// set cache products in redis
 	if err := r.cacheSvc.Set(ctx, cacheKeyList, products, 15*time.Minute); err != nil {
-		log.Warn("failed to set cache products in GetAllProduct: ", err)
+		log.Warn("[Repo]: failed to set cache products in GetAllProduct: ", err)
 	}
 
 	return products, nil
@@ -122,19 +122,19 @@ func (r *productRepo) GetProductByID(ctx context.Context, id string, product *mo
 	// get product from redis
 	cacheKeyID := r.keyGen.KeyID(id)
 	if err := r.cacheSvc.Get(ctx, cacheKeyID, product); err == nil {
-		log.Info("product from redis: ", product)
+		log.Info("[Repo]: product from redis: ", product)
 		return nil
 	}
 
 	// get product from db if fail to get that from redis
 	if err := r.db.GetByID(ctx, r.collection, id, product); err != nil {
-		log.Info("product from db: ", product)
+		log.Info("[Repo]: product from db: ", product)
 		return err
 	}
 
 	// set product cache in redis
 	if err := r.cacheSvc.Set(ctx, cacheKeyID, product, 15*time.Minute); err != nil {
-		log.Warn("Warning: fail to set cache product in GetProductByID: ", err)
+		log.Warn("[Repo]: fail to set cache product in GetProductByID: ", err)
 	}
 
 	return nil

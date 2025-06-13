@@ -65,6 +65,7 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 		log.WithError(err).WithFields(baseLogFields).Error("failed to update user")
 		return ErrUpdateUser
 	}
+	log.Printf("[Service]: user {%s} updated success:", currentUser.ID)
 
 	packetByte, err := utils.BuildPacket("update_user", currentUser)
 	if err != nil {
@@ -77,7 +78,6 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 		return err
 	}
 
-	log.Info("user updated success:", currentUser)
 	return nil
 }
 
@@ -98,8 +98,8 @@ func (us *userService) Delete(ctx context.Context, id string) error {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to delete user")
 		return ErrDeleteUser
 	}
-
-	log.Info("user deleted success:", user)
+	log.Printf("[Service]: user {%s} deleted success:", user.ID)
+	
 	return nil
 }
 
@@ -116,7 +116,7 @@ func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 		return nil, ErrUserNotFound
 	}
 
-	log.Info("get all user success")
+	log.Info("[Service]: get all user success")
 	return users, nil
 }
 
@@ -134,6 +134,6 @@ func (us *userService) GetByID(ctx context.Context, id string) (*model.User, err
 		return nil, ErrUserNotFound
 	}
 
-	log.Info("get user by id success:", user)
+	log.Printf("[Service]: get user {%s} success:", user.ID)
 	return &user, nil
 }
