@@ -7,12 +7,11 @@ import (
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
-	"go-rebuild/internal/repository"
+	"go-rebuild/internal/module"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -31,7 +30,6 @@ var (
 
 	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
 	ErrInternalServer   = errors.New("internal server error")
-	ErrCreateUser       = errors.New("failed to create user")
 	ErrVerifyUser       = errors.New("failed to verify user")
 	ErrVerifyToken      = errors.New("token verification failed")
 	ErrUserNotFound     = errors.New("user not found")
@@ -40,14 +38,14 @@ var (
 
 type authService struct {
 	secretKey   string
-	userRepo    repository.UserRepository
+	userSvc     module.UserService
 	producerSvc messagebroker.ProducerService
 }
 
-func NewAuthService(userRepo repository.UserRepository, producerSvc messagebroker.ProducerService) Jwt {
+func NewAuthService(userSvc module.UserService, producerSvc messagebroker.ProducerService) Jwt {
 	return &authService{
 		secretKey:   appcore_config.Config.SecretKey,
-		userRepo:    userRepo,
+		userSvc:     userSvc,
 		producerSvc: producerSvc,
 	}
 }
@@ -62,10 +60,10 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 	claims := model.Claims{
 		Email: user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), 
-			IssuedAt:  jwt.NewNumericDate(time.Now()),                    
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "auth-service",
-			Subject:   user.ID, 
+			Subject:   user.ID,
 		},
 	}
 
@@ -112,8 +110,8 @@ func (a *authService) Login(ctx context.Context, user *model.User) (*string, err
 		"operation": "login",
 	}
 
-	var exisUser model.User
-	if err := a.userRepo.GetUserByEmail(ctx, user.Email, &exisUser); err != nil {
+	exisUser, err := a.userSvc.GetByEmail(ctx, user.Email)
+	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return nil, ErrInvalidCredentials
 	}
@@ -128,7 +126,7 @@ func (a *authService) Login(ctx context.Context, user *model.User) (*string, err
 		return nil, ErrInvalidCredentials
 	}
 
-	tokenStr, err := a.GenerateToken(&exisUser)
+	tokenStr, err := a.GenerateToken(exisUser)
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return nil, ErrInternalServer
@@ -140,28 +138,14 @@ func (a *authService) Login(ctx context.Context, user *model.User) (*string, err
 }
 
 func (a *authService) Register(ctx context.Context, user *model.User) error {
-	user.ID = primitive.NewObjectID().Hex()
 	var baseLogFileds = log.Fields{
 		"user_id":   user.ID,
 		"layer":     "auth_service",
 		"operation": "register",
 	}
 
-	if err := user.Verify(); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
-		return ErrVerifyUser
-	}
-
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = user.CreatedAt
-	if err := user.SetPassword(user.Password); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
-		return ErrCreateUser
-	}
-
-	if err := a.userRepo.AddUser(ctx, user); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
-		return ErrCreateUser
+	if err := a.userSvc.Save(ctx, user); err != nil {
+		return err
 	}
 
 	body, err := json.Marshal(user)
@@ -194,17 +178,26 @@ func (a *authService) GetRoleUserByID(ctx context.Context, userID string) (*stri
 		"layer":     "auth_service",
 		"operation": "getRoleUserByID",
 	}
-	var user model.User
-	if err := a.userRepo.GetUserByID(ctx, userID, &user); err != nil {
+
+	user, err := a.userSvc.GetByID(ctx, userID)
+	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return nil, err
 	}
+
 	return &user.Role, nil
 }
 
 func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool {
+	var baseLogFileds = log.Fields{
+		"user_id":   userID,
+		"layer":     "auth_service",
+		"operation": "checkAllowRoles",
+	}
+
 	userRole, err := a.GetRoleUserByID(context.Background(), userID)
 	if err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
 		return false
 	}
 	for _, allowed := range allowedRoles {
@@ -212,5 +205,7 @@ func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool
 			return true
 		}
 	}
+
+	log.WithError(errors.New("role not match")).WithFields(baseLogFileds)
 	return false
 }

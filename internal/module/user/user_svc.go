@@ -8,8 +8,10 @@ import (
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
 	utils "go-rebuild/internal/utlis"
+	"time"
 
 	log "github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -26,6 +28,8 @@ var (
 	ErrHashPassword     = errors.New("password is invalid")
 	ErrUserNotFound     = errors.New("user not found")
 	ErrSendEmailMessage = errors.New("failed to send email message")
+
+	ErrVerifyUser = errors.New("failed to verify user")
 )
 
 type userService struct {
@@ -42,6 +46,34 @@ func NewUserService(userRepo repository.UserRepository, producerSvc messagebroke
 }
 
 // ------------------------ Method Basic UD ------------------------
+func (us *userService) Save(ctx context.Context, user *model.User) error {
+	user.ID = primitive.NewObjectID().Hex()
+	var baseLogFileds = log.Fields{
+		"user_id":   user.ID,
+		"layer":     "auth_service",
+		"operation": "register",
+	}
+
+	if err := user.Verify(); err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
+		return ErrVerifyUser
+	}
+
+	user.CreatedAt = time.Now()
+	user.UpdatedAt = user.CreatedAt
+	if err := user.SetPassword(user.Password); err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
+		return ErrCreateUser
+	}
+
+	if err := us.userRepo.AddUser(ctx, user); err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
+		return ErrCreateUser
+	}
+
+	return nil
+}
+
 func (us *userService) Update(ctx context.Context, req *model.User, id string) error {
 	var baseLogFields = log.Fields{
 		"user_id":   id,
@@ -99,7 +131,7 @@ func (us *userService) Delete(ctx context.Context, id string) error {
 		return ErrDeleteUser
 	}
 	log.Printf("[Service]: user {%s} deleted success:", user.ID)
-	
+
 	return nil
 }
 
@@ -121,7 +153,6 @@ func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 }
 
 func (us *userService) GetByID(ctx context.Context, id string) (*model.User, error) {
-	log.Info("user id from userSvc : ", id)
 	var baseLogFields = log.Fields{
 		"user_id":   id,
 		"layer":     "user_service",
@@ -135,5 +166,22 @@ func (us *userService) GetByID(ctx context.Context, id string) (*model.User, err
 	}
 
 	log.Printf("[Service]: get user {%s} success:", user.ID)
+	return &user, nil
+}
+
+func (us *userService) GetByEmail(ctx context.Context, email string) (*model.User, error) {
+	var baseLogFields = log.Fields{
+		"user_email":  email,
+		"layer":     "user_service",
+		"operation": "user_getByEmail",
+	}
+
+	var user model.User
+	if err := us.userRepo.GetUserByEmail(ctx, email, &user); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("failed to get user by email")
+		return nil, ErrUserNotFound
+	}
+
+	log.Printf("[Service]: get user by email {%s} success:", user.Email)
 	return &user, nil
 }

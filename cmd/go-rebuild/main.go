@@ -143,8 +143,8 @@ func main() {
 	// User and Auth
 	start = time.Now()
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
-	authService := auth.NewAuthService(userRepository, producerService)
 	userService := userSvc.NewUserService(userRepository, producerService)
+	authService := auth.NewAuthService(userService, producerService)
 	userHandler := handler.NewUserHandler(userService)
 	authHandler := handler.NewAuthHandler(authService)
 	api.RegisterUserAPI(router, userHandler, authService)
