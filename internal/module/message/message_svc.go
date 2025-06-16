@@ -50,7 +50,7 @@ func (s *messageService) Update(ctx context.Context, mReq *model.MessageReq, id 
 }
 
 func (s *messageService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.DeleteMessage(ctx, id, &model.Message{}); err != nil {
+	if err := s.repo.DeleteMessage(ctx, id); err != nil {
 		return ErrDeleteMessage
 	}
 

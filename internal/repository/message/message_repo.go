@@ -33,8 +33,8 @@ func (r *messageRepo) UpdateMessage(ctx context.Context, msg *model.Message, id 
 	return r.db.Update(ctx, r.collection, msg, id)
 }
 
-func (r *messageRepo) DeleteMessage(ctx context.Context, id string, msg *model.Message) error {
-	return r.db.Delete(ctx, r.collection, msg, id)
+func (r *messageRepo) DeleteMessage(ctx context.Context, id string) error {
+	return r.db.Delete(ctx, r.collection, &model.Message{}, id)
 }
 
 func (r *messageRepo) GetMessagesBetweenUser(ctx context.Context, senderID string, receiverID string) ([]model.Message, error) {

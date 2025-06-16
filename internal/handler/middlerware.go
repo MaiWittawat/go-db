@@ -2,13 +2,11 @@ package handler
 
 import (
 	"errors"
-	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"go-rebuild/internal/auth"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,31 +27,24 @@ func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
 		// ตรวจ token
-		if err := authSvc.VerifyToken(tokenStr); err != nil {
+		claims, err := authSvc.VerifyToken(tokenStr)
+		if err != nil {
 			log.WithError(err).WithFields(baseLogFields)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}
 
-		// decode token อีกครั้งเพื่อดึง userID 
-		token, _ := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			return []byte(appcore_config.Config.SecretKey), nil
-		})
-
-		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			userID := claims["sub"].(string)
-			c.Set("user_id", userID)
-		} else {
+		if claims == nil || claims.Subject == "" {
 			log.WithError(errors.New("failed to mapclaims")).WithFields(baseLogFields)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
 			return
 		}
-
+		
+		userID := claims.Subject
+		c.Set("user_id", userID)
 		c.Next()
 	}
 }
-
-
 
 func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFunc {
 	var baseLogFields = log.Fields{

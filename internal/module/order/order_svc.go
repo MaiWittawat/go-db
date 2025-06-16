@@ -45,13 +45,14 @@ func NewOrderService(ordeRepo repository.OrderRepository, productSvc module.Prod
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (s *orderService) Save(ctx context.Context, order *model.Order) error {
+func (s *orderService) Save(ctx context.Context, order *model.Order, userID string) error {
 	product, err := s.productSvc.GetByID(ctx, order.ProductID)
 	if err != nil {
 		return err
 	}
 
 	order.ID = primitive.NewObjectID().Hex()
+	order.UserID = userID
 	order.Price = product.Price
 	order.Amount = order.Quantity * order.Price
 	order.Status = "PENDING"
@@ -121,7 +122,7 @@ func (s *orderService) Delete(ctx context.Context, id string, userID string) err
 		"layer":    "order_service",
 		"step":     "order_delete",
 	}
-
+	log.Info("userID in delete: ", userID)
 	var order model.Order
 	if err := s.orderRepo.GetOrderByID(ctx, id, &order); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get order by id")
@@ -133,7 +134,7 @@ func (s *orderService) Delete(ctx context.Context, id string, userID string) err
 		return ErrDeleteOrder
 	}
 
-	if err := s.orderRepo.DeleteOrder(ctx, id, &order); err != nil {
+	if err := s.orderRepo.DeleteOrder(ctx, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to delete order")
 		return ErrDeleteOrder
 	}

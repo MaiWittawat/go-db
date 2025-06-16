@@ -59,14 +59,17 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 		"operation": "verifyToken",
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub":   user.ID,                              // Subject
-		"email": user.Email,                           // Custom claim
-		"exp":   time.Now().Add(1 * time.Hour).Unix(), // Expiration. expire in 1 hour
-		"iat":   time.Now().Unix(),                    // Issued at
-		"iss":   "auth-service",                       // Issuer
-	})
+	claims := model.Claims{
+		Email: user.Email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)), 
+			IssuedAt:  jwt.NewNumericDate(time.Now()),                    
+			Issuer:    "auth-service",
+			Subject:   user.ID, 
+		},
+	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(appcore_config.Config.SecretKey))
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
@@ -76,34 +79,29 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 	return &tokenStr, nil
 }
 
-func (a *authService) VerifyToken(tokenStr string) error {
+func (a *authService) VerifyToken(tokenStr string) (*model.Claims, error) {
 	var baseLogFileds = log.Fields{
 		"token":     tokenStr,
 		"layer":     "auth_service",
 		"operation": "verifyToken",
 	}
 
-	// Parse token และ validate
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		// ตรวจสอบว่าใช้ signing method ที่ถูกต้อง
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			log.WithError(jwt.ErrSignatureInvalid).WithFields(baseLogFileds)
-			return nil, jwt.ErrSignatureInvalid
-		}
+	claims := &model.Claims{}
+	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(appcore_config.Config.SecretKey), nil
 	})
 
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
-		return ErrVerifyToken
+		return nil, ErrVerifyToken
 	}
 
 	if !token.Valid {
 		log.WithError(jwt.ErrTokenInvalidClaims).WithFields(baseLogFileds)
-		return ErrVerifyToken
+		return nil, ErrVerifyToken
 	}
 
-	return nil
+	return claims, nil
 }
 
 func (a *authService) Login(ctx context.Context, user *model.User) (*string, error) {
@@ -215,28 +213,4 @@ func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool
 		}
 	}
 	return false
-}
-
-
-func (a *authService) GetUserIDFromToken(tokenStr string) (string, error) {
-	secretKey := appcore_config.Config.SecretKey
-	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-
-	if err != nil || !token.Valid {
-		return "", err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", errors.New("invalid claims")
-	}
-
-	userID, ok := claims["sub"].(string)
-	if !ok {
-		return "", errors.New("user_id not found in token")
-	}
-
-	return userID, nil
 }

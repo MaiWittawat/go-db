@@ -88,9 +88,9 @@ func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) 
 	return nil
 }
 
-func (r *StockRepo) DeleteStock(ctx context.Context, id string, s *model.Stock) error {
+func (r *StockRepo) DeleteStock(ctx context.Context, id string) error {
 	// delete data from db
-	if err := r.db.Delete(ctx, r.collection, s, id); err != nil {
+	if err := r.db.Delete(ctx, r.collection, &model.Stock{}, id); err != nil {
 		return err
 	}
 
@@ -101,7 +101,7 @@ func (r *StockRepo) DeleteStock(ctx context.Context, id string, s *model.Stock) 
 	}
 
 	// delete cacheKeyID in redis
-	cacheKeyProductID := r.keyGen.KeyField("product_id", s.ProductID)
+	cacheKeyProductID := r.keyGen.KeyField("product_id", id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyProductID); err != nil {
 		log.Warn("[Repo]: failed to clear stock cacheKeyProductID in DeletStock: ", err)
 	} 

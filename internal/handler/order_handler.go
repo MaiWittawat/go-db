@@ -25,7 +25,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	}
 
 	order.UserID = userID
-	if err := h.service.Save(c.Request.Context(), &order); err != nil {
+	if err := h.service.Save(c.Request.Context(), &order, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

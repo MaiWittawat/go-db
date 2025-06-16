@@ -72,9 +72,9 @@ func (r *productRepo) UpdateProduct(ctx context.Context, p *model.Product, id st
 	return nil
 }
 
-func (r *productRepo) DeleteProduct(ctx context.Context, id string, product *model.Product) error {
+func (r *productRepo) DeleteProduct(ctx context.Context, id string) error {
 	// delete product from db
-	if err := r.db.Delete(ctx, r.collection, r, id); err != nil {
+	if err := r.db.Delete(ctx, r.collection, &model.Product{}, id); err != nil {
 		return err
 	}
 

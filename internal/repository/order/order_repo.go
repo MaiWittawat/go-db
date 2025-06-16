@@ -67,9 +67,9 @@ func (r *orderRepo) UpdateOrder(ctx context.Context, o *model.Order, id string) 
 	return nil
 }
 
-func (r *orderRepo) DeleteOrder(ctx context.Context, id string, order *model.Order) error {
+func (r *orderRepo) DeleteOrder(ctx context.Context, id string) error {
 	// delete order in db
-	if err := r.db.Delete(ctx, r.collection, order, id); err != nil {
+	if err := r.db.Delete(ctx, r.collection, &model.Order{}, id); err != nil {
 		return err
 	}
 

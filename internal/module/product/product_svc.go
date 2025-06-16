@@ -136,7 +136,7 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 		return ErrProductNotFound
 	}
 
-	if err := s.productRepo.DeleteProduct(ctx, id, &product); err != nil {
+	if err := s.productRepo.DeleteProduct(ctx, id); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to delete product")
 		return ErrDeleteProduct
 	}
