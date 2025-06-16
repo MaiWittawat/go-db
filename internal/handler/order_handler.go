@@ -18,14 +18,13 @@ func NewOrderHandler(service module.OrderService) *OrderHandler {
 
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
-	var order model.Order
-	if err := c.ShouldBindJSON(&order); err != nil {
+	var oReq model.OrderReq
+	if err := c.ShouldBindJSON(&oReq); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	order.UserID = userID
-	if err := h.service.Save(c.Request.Context(), &order, userID); err != nil {
+	if err := h.service.Save(c.Request.Context(), &oReq, userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -41,7 +40,7 @@ func (h *OrderHandler) UpdateOrder(c *gin.Context) {
 	}
 	if err := h.service.Update(c.Request.Context(), &upDateOrder, c.Param("id")); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return	
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "order updated"})
@@ -56,16 +55,14 @@ func (h *OrderHandler) DeleteOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "order deleted"})
 }
 
-
 func (h *OrderHandler) GetOrder(c *gin.Context) {
-	var order model.Order
-	if err := h.service.GetByID(c.Request.Context(), c.Param("id"), &order); err != nil {
+	order, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "get order success", "data": order})
 }
-
 
 func (h *OrderHandler) GetOrders(c *gin.Context) {
 	orders, err := h.service.GetAll(c.Request.Context())

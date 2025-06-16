@@ -23,12 +23,12 @@ type StockService interface {
 }
 
 type OrderService interface {
-	Save(ctx context.Context, o *model.Order, userID string) error
+	Save(ctx context.Context, oReq *model.OrderReq, userID string) error
 	Update(ctx context.Context, o *model.Order, id string) error
 	Delete(ctx context.Context, id string, userID string) error
 
-	GetAll(ctx context.Context) ([]model.Order, error)
-	GetByID(ctx context.Context, id string, order *model.Order) error
+	GetAll(ctx context.Context) ([]model.OrderResp, error)
+	GetByID(ctx context.Context, id string) (*model.OrderResp, error)
 }
 
 type ProductService interface {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -45,20 +44,13 @@ func NewOrderService(ordeRepo repository.OrderRepository, productSvc module.Prod
 }
 
 // ------------------------ Method Basic CUD ------------------------
-func (s *orderService) Save(ctx context.Context, order *model.Order, userID string) error {
-	product, err := s.productSvc.GetByID(ctx, order.ProductID)
+func (s *orderService) Save(ctx context.Context, oReq *model.OrderReq, userID string) error {
+	productResp, err := s.productSvc.GetByID(ctx, oReq.ProductID)
 	if err != nil {
 		return err
 	}
 
-	order.ID = primitive.NewObjectID().Hex()
-	order.UserID = userID
-	order.Price = product.Price
-	order.Amount = order.Quantity * order.Price
-	order.Status = "PENDING"
-	order.CreatedAt = time.Now()
-	order.UpdatedAt = order.CreatedAt
-
+	order := oReq.ToOrder(userID, productResp)
 	var baseLogFields = log.Fields{
 		"order_id": order.ID,
 		"layer":    "order_service",
@@ -154,7 +146,7 @@ func (s *orderService) Delete(ctx context.Context, id string, userID string) err
 }
 
 // ------------------------ Method Basic Query ------------------------
-func (s *orderService) GetAll(ctx context.Context) ([]model.Order, error) {
+func (s *orderService) GetAll(ctx context.Context) ([]model.OrderResp, error) {
 	var baseLogFields = log.Fields{
 		"layer": "order_service",
 		"step":  "order_getAll",
@@ -166,23 +158,32 @@ func (s *orderService) GetAll(ctx context.Context) ([]model.Order, error) {
 		return nil, ErrOrderNotFound
 	}
 
+	var ordersResp []model.OrderResp
+	for _, order := range orders {
+		oResp := order.ToOrderResp()
+		ordersResp = append(ordersResp, *oResp)
+	}
+
 	log.Info("[Service]: get all order success")
-	return orders, nil
+	return ordersResp, nil
 }
 
-func (s *orderService) GetByID(ctx context.Context, id string, order *model.Order) (err error) {
+func (s *orderService) GetByID(ctx context.Context, id string) (*model.OrderResp, error) {
+	var order model.Order
 	var baseLogFields = log.Fields{
 		"order_id": id,
 		"layer":    "order_service",
 		"step":     "order_delete",
 	}
 
-	err = s.orderRepo.GetOrderByID(ctx, id, order)
+	err := s.orderRepo.GetOrderByID(ctx, id, &order)
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to get order by id")
-		return ErrOrderNotFound
+		return nil, ErrOrderNotFound
 	}
 
+	orderResp := order.ToOrderResp()
+
 	log.Info("[Service]: get order by id success:", order)
-	return nil
+	return orderResp, nil
 }
