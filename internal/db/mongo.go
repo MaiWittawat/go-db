@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
+	"go-rebuild/internal/model"
 	"reflect"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -172,4 +174,9 @@ func (m *mongoRepo) GetByField(ctx context.Context, coll string, field string, v
 
 	return nil
 
+}
+
+// advance query for messages
+func (m *mongoRepo) FindMessageBetweenUser(ctx context.Context, sender_id string, receiver_id string) ([]model.Message, error) {
+	return nil, nil
 }

@@ -5,6 +5,15 @@ import (
 	"go-rebuild/internal/model"
 )
 
+type MessageService interface {
+	Save(ctx context.Context, message *model.MessageReq) error
+	Update(ctx context.Context, message *model.MessageReq, id string) error
+	Delete(ctx context.Context, id string) error
+
+	GetMessagesBetweenUser(ctx context.Context, senderID string, receiverID string) ([]model.MessageResp, error)
+	GetMessageByID(ctx context.Context, id string) (*model.MessageResp, error)
+}
+
 type StockService interface {
 	Save(ctx context.Context, productID string, quantity int) error
 	Update(ctx context.Context, productID string, quantity int) error
@@ -27,8 +36,8 @@ type ProductService interface {
 	Update(ctx context.Context, p *model.ProductReq, id string, userID string) error
 	Delete(ctx context.Context, id string) error
 
-	GetAll(ctx context.Context) ([]model.ProductRes, error)
-	GetByID(ctx context.Context, id string) (*model.ProductRes, error)
+	GetAll(ctx context.Context) ([]model.ProductResp, error)
+	GetByID(ctx context.Context, id string) (*model.ProductResp, error)
 }
 
 type UserService interface {

@@ -12,4 +12,6 @@ type Jwt interface {
 	GetRoleUserByID(ctx context.Context, userID string) (*string, error)
 	GenerateToken(user *model.User) (*string, error)
 	VerifyToken(token string) error
+	GetUserIDFromToken(tokenStr string) (string, error)
+	CheckAllowRoles(userID string, allowedRoles []string) bool
 }

@@ -10,11 +10,14 @@ import (
 	"go-rebuild/internal/handler/api"
 	"go-rebuild/internal/mail"
 	messagebroker "go-rebuild/internal/message_broker"
+	"go-rebuild/internal/realtime"
 
+	messageSvc "go-rebuild/internal/module/message"
 	orderSvc "go-rebuild/internal/module/order"
 	productSvc "go-rebuild/internal/module/product"
 	stockSvc "go-rebuild/internal/module/stock"
 	userSvc "go-rebuild/internal/module/user"
+	messageRepo "go-rebuild/internal/repository/message"
 	orderRepo "go-rebuild/internal/repository/order"
 	productRepo "go-rebuild/internal/repository/product"
 	stockRepo "go-rebuild/internal/repository/stock"
@@ -163,13 +166,25 @@ func main() {
 	api.RegisterProductAPI(router, productHandler, authService)
 	log.Printf("[Startup]: Product services setup took %s", time.Since(start))
 
-	start = time.Now()
 	// Order
+	start = time.Now()
 	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
-	orderService := orderSvc.NewOrderService(orderRepository,productSvc, producerService)
+	orderService := orderSvc.NewOrderService(orderRepository, productSvc, producerService)
 	orderHandler := handler.NewOrderHandler(orderService)
 	api.RegisterOrderAPI(router, orderHandler, authService)
 	log.Printf("[Startup]: Order services setup took %s", time.Since(start))
+
+	// Message
+	start = time.Now()
+	messageRepository := messageRepo.NewMessageRepo(dbRepo, cacheSvc)
+	messageService := messageSvc.NewMessageService(messageRepository)
+
+	// Realtime service และ adapter
+	websocketServer := realtime.NewWebSocketServer()
+	chatRealtime := realtime.NewChatRealtime(websocketServer, messageService, authService)
+	messageHandler := handler.NewMessageHandler(chatRealtime)
+	api.RegisterMessageAPI(router, messageHandler, authService)
+	log.Printf("[Startup]: Message services setup took %s", time.Since(start))
 
 	userConsumeService := messagebroker.NewEmailConsumerService(rabbitMQConn, userConsumeChannel, mailService)
 	stockConsumeService := messagebroker.NewStockComsumeService(rabbitMQConn, stockConsumeChannel, stockService)
@@ -194,7 +209,7 @@ func main() {
 	go stockConsumeService.Consuming(stockSvc.QueueName, "stock_consume")
 
 	log.Printf("[Time]: Overall application [startup] took %s", time.Since(overallStart))
-	
+
 	// ------------------------------ Shutdown ------------------------------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -205,7 +220,6 @@ func main() {
 	gracefulShutdown(shutdownCtx, server)
 
 }
-
 
 // ------------------------------ Rabbitmq setup channel function ------------------------------
 func userCreateQueueSetup(ch *amqp.Channel) {
@@ -231,7 +245,6 @@ func stockUpdateQueueSetup(ch *amqp.Channel) {
 	messagebroker.DeclareQueue(ch, stockSvc.QueueName)
 	messagebroker.BindQueueToExchange(ch, stockSvc.QueueName, stockSvc.ExchangeName, "stock.update")
 }
-
 
 // ------------------------------ Shutdown function ------------------------------
 func rabbitShutdown() {
@@ -277,12 +290,12 @@ func redisShutdown() {
 	log.Info("[Down]: Redis closed")
 }
 
-func dbShotdown(ctx context.Context) {
+func dbShutdown(ctx context.Context) {
 	// close MongoDB
 	if mgDBInstant != nil {
 		if err := mgDBInstant.Disconnect(ctx); err != nil {
 			log.Errorf("[MongoDB] shutdown error: %v", err)
-		} 
+		}
 	}
 
 	// close Postgres
@@ -291,7 +304,7 @@ func dbShotdown(ctx context.Context) {
 		if err == nil {
 			if err := sqlDB.Close(); err != nil {
 				log.Errorf("[Postgres] shutdown error: %v", err)
-			} 
+			}
 		}
 	}
 	log.Info("[Down]: DB closed")
@@ -306,5 +319,5 @@ func gracefulShutdown(ctx context.Context, server *http.Server) {
 
 	rabbitShutdown()
 	redisShutdown()
-	dbShotdown(ctx)
+	dbShutdown(ctx)
 }

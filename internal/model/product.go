@@ -24,7 +24,7 @@ type ProductReq struct { // input form user
 	CreatedBy string `json:"created_by"`
 }
 
-type ProductRes struct { // show output to user
+type ProductResp struct { // show output to user
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	Price     int       `json:"price"`
@@ -44,8 +44,8 @@ func (pReq *ProductReq) ToProduct() *Product {
 	return &product
 }
 
-func (p *Product) ToProductRes() *ProductRes {
-	productRes := ProductRes{
+func (p *Product) ToProductRes() *ProductResp {
+	productRes := ProductResp{
 		ID : p.ID,
 		Title: p.Title,
 		Price: p.Price,

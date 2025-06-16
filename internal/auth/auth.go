@@ -203,3 +203,40 @@ func (a *authService) GetRoleUserByID(ctx context.Context, userID string) (*stri
 	}
 	return &user.Role, nil
 }
+
+func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool {
+	userRole, err := a.GetRoleUserByID(context.Background(), userID)
+	if err != nil {
+		return false
+	}
+	for _, allowed := range allowedRoles {
+		if *userRole == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+
+func (a *authService) GetUserIDFromToken(tokenStr string) (string, error) {
+	secretKey := appcore_config.Config.SecretKey
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil || !token.Valid {
+		return "", err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid claims")
+	}
+
+	userID, ok := claims["sub"].(string)
+	if !ok {
+		return "", errors.New("user_id not found in token")
+	}
+
+	return userID, nil
+}

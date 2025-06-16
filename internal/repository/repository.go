@@ -5,6 +5,15 @@ import (
 	"go-rebuild/internal/model"
 )
 
+type MessageRepository interface {
+	AddMesssage(ctx context.Context, msg *model.Message) error
+	UpdateMessage(ctx context.Context, msg *model.Message, id string) error
+	DeleteMessage(ctx context.Context, id string, msg *model.Message) error
+
+	GetMessagesBetweenUser(ctx context.Context, senderID string, receiverID string)([]model.Message, error)
+	GetMessageByID(ctx context.Context, id string, msg *model.Message) error
+}
+
 type StockRepository interface {
 	AddStock(ctx context.Context, s *model.Stock) error
 	UpdateStock(ctx context.Context, s *model.Stock, id string) error

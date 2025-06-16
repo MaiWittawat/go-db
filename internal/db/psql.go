@@ -29,6 +29,7 @@ func NewPsqlRepo(db *gorm.DB) DB {
 	db.AutoMigrate(&model.Product{})
 	db.AutoMigrate(&model.Stock{})
 	db.AutoMigrate(&model.Order{})
+	db.AutoMigrate(&model.Message{})
 	return &psqlRepo{db: db}
 }
 
@@ -78,4 +79,20 @@ func (p *psqlRepo) GetByField(ctx context.Context, _ string, field string, value
 		return res.Error
 	}
 	return nil
+}
+
+// advance query for messages
+func (p *psqlRepo) FindMessageBetweenUser(ctx context.Context, sender_id string, receiver_id string) ([]model.Message, error) {
+	var messages []model.Message
+	err := p.db.WithContext(ctx).
+		Where(
+			"(sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
+			sender_id, receiver_id,
+			receiver_id, sender_id).
+		Order("created_at ASC").
+		Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	return messages, nil
 }

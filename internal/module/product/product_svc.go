@@ -119,7 +119,7 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 		return ErrUpdateProduct
 	}
 
-	log.Printf("[Service]: product {%s} updated successfully\n", currentProduct.ID)
+	log.Printf("[Service]: product {%s} updated success\n", currentProduct.ID)
 	return nil
 }
 
@@ -146,7 +146,7 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 }
 
 // ------------------------ Method Basic Query ------------------------
-func (s *productService) GetAll(ctx context.Context) ([]model.ProductRes, error) {
+func (s *productService) GetAll(ctx context.Context) ([]model.ProductResp, error) {
 	var baseLogFields = log.Fields{
 		"layer":     "product_service",
 		"operation": "product_getAll",
@@ -158,7 +158,7 @@ func (s *productService) GetAll(ctx context.Context) ([]model.ProductRes, error)
 		return nil, ErrProductNotFound
 	}
 
-	var productsRes []model.ProductRes
+	var productsRes []model.ProductResp
 	for _, product := range products {
 		productRes := product.ToProductRes()
 		productsRes = append(productsRes, *productRes)
@@ -168,7 +168,7 @@ func (s *productService) GetAll(ctx context.Context) ([]model.ProductRes, error)
 	return productsRes, nil
 }
 
-func (s *productService) GetByID(ctx context.Context, id string) (*model.ProductRes, error) {
+func (s *productService) GetByID(ctx context.Context, id string) (*model.ProductResp, error) {
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",

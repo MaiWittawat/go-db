@@ -22,7 +22,12 @@ type orderRepo struct {
 // ------------------------ Constructor ------------------------
 func NewOrderRepo(db dbRepo.DB, cacheSvc cache.Cache) repository.OrderRepository {
 	keyGen := cache.NewKeyGenerator("orders")
-	return &orderRepo{db: db, collection: "orders", cacheSvc: cacheSvc, keyGen: keyGen}
+	return &orderRepo{
+		db:         db,
+		collection: "orders",
+		cacheSvc:   cacheSvc,
+		keyGen:     keyGen,
+	}
 }
 
 // ------------------------ Method Basic CUD ------------------------
