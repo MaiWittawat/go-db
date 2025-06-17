@@ -186,7 +186,7 @@ func (s *orderService) GetByID(ctx context.Context, id string) (*model.OrderResp
 	var baseLogFields = log.Fields{
 		"order_id": id,
 		"layer":    "order_service",
-		"method":   "order_delete",
+		"method":   "order_getByID",
 	}
 
 	err := s.orderRepo.GetOrderByID(ctx, id, &order)

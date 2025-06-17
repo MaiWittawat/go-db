@@ -42,7 +42,7 @@ func (s *stockService) Save(ctx context.Context, productID string, quantity int)
 	var baseLogFields = log.Fields{
 		"stock_id": stock.ID,
 		"layer":    "stock_service",
-		"method":   "stock_create",
+		"method":   "stock_save",
 	}
 
 	stock.SetQuantity(quantity)
@@ -82,7 +82,7 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 	var baseLogFields = log.Fields{
 		"product_id": productID,
 		"layer":      "stock_service",
-		"method":     "stock_increase",
+		"method":     "stock_increaseQuantity",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
@@ -106,7 +106,7 @@ func (s *stockService) DecreaseQuantity(ctx context.Context, quantity int, produ
 	var baseLogFields = log.Fields{
 		"product_id": productID,
 		"layer":      "stock_service",
-		"method":     "stock_decrease",
+		"method":     "stock_decreaseQuantity",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {

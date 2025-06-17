@@ -16,14 +16,12 @@ import (
 
 var (
 	// error
-	ErrCreateUser       = errors.New("fail to create user")
-	ErrCreateSeller     = errors.New("fail to create seller")
-	ErrUpdateUser       = errors.New("fail to update user")
-	ErrDeleteUser       = errors.New("fail to delete user")
-	ErrHashPassword     = errors.New("password is invalid")
-	ErrUserNotFound     = errors.New("user not found")
-	ErrSendEmailMessage = errors.New("failed to send email message")
+	ErrCreateUser   = errors.New("fail to create user")
+	ErrUpdateUser   = errors.New("fail to update user")
+	ErrDeleteUser   = errors.New("fail to delete user")
+	ErrUserNotFound = errors.New("user not found")
 
+	ErrSendEmailMessage = errors.New("failed to send email message")
 	ErrVerifyUser       = errors.New("failed to verify user")
 	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
 	ErrMarShal          = errors.New("failed to marshal object")
@@ -42,13 +40,13 @@ func NewUserService(userRepo repository.UserRepository, producerSvc messagebroke
 	}
 }
 
-// ------------------------ Method Basic UD ------------------------
+// ------------------------ Method Basic CUD ------------------------
 func (us *userService) Save(ctx context.Context, user *model.User) error {
 	user.ID = primitive.NewObjectID().Hex()
 	var baseLogFields = log.Fields{
 		"user_id": user.ID,
 		"layer":   "user_service",
-		"method":  "register",
+		"method":  "user_save",
 	}
 
 	if err := user.Verify(); err != nil {
@@ -85,9 +83,9 @@ func (us *userService) Save(ctx context.Context, user *model.User) error {
 
 func (us *userService) Update(ctx context.Context, req *model.User, id string) error {
 	var baseLogFields = log.Fields{
-		"user_id":   id,
-		"layer":     "user_service",
-		"operation": "user_update",
+		"user_id": id,
+		"layer":   "user_service",
+		"method":  "user_update",
 	}
 
 	if err := req.Verify(); err != nil {
@@ -117,7 +115,7 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 	mqConf := &model.MQConfig{ExchangeName: messagebroker.UserExchangeName, ExchangeType: messagebroker.UserExchangeType, QueueName: messagebroker.UserQueueName, RoutingKey: "user.update"}
 	if err := us.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("publishing")
-		return err
+		return ErrSendEmailMessage
 	}
 
 	return nil
@@ -125,9 +123,9 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 
 func (us *userService) Delete(ctx context.Context, id string) error {
 	var baseLogFields = log.Fields{
-		"user_id":   id,
-		"layer":     "user_service",
-		"operation": "user_delete",
+		"user_id": id,
+		"layer":   "user_service",
+		"method":  "user_delete",
 	}
 
 	var user model.User
@@ -148,8 +146,8 @@ func (us *userService) Delete(ctx context.Context, id string) error {
 // ------------------------ Method Basic Query ------------------------
 func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 	var baseLogFields = log.Fields{
-		"layer":     "user_service",
-		"operation": "user_getAll",
+		"layer":  "user_service",
+		"method": "user_getAll",
 	}
 
 	users, err := us.userRepo.GetAllUser(ctx)
@@ -164,9 +162,9 @@ func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 
 func (us *userService) GetByID(ctx context.Context, id string) (*model.User, error) {
 	var baseLogFields = log.Fields{
-		"user_id":   id,
-		"layer":     "user_service",
-		"operation": "user_getByID",
+		"user_id": id,
+		"layer":   "user_service",
+		"method":  "user_getByID",
 	}
 
 	var user model.User
@@ -183,7 +181,7 @@ func (us *userService) GetByEmail(ctx context.Context, email string) (*model.Use
 	var baseLogFields = log.Fields{
 		"user_email": email,
 		"layer":      "user_service",
-		"operation":  "user_getByEmail",
+		"method":     "user_getByEmail",
 	}
 
 	var user model.User

@@ -82,7 +82,7 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
-		"operation":  "product_update",
+		"method":     "product_update",
 	}
 	updateProduct := pReq.ToProduct()
 
@@ -131,7 +131,7 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
-		"operation":  "product_delete",
+		"method":     "product_delete",
 	}
 
 	var product model.Product
@@ -152,8 +152,8 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 // ------------------------ Method Basic Query ------------------------
 func (s *productService) GetAll(ctx context.Context) ([]model.ProductResp, error) {
 	var baseLogFields = log.Fields{
-		"layer":     "product_service",
-		"operation": "product_getAll",
+		"layer":  "product_service",
+		"method": "product_getAll",
 	}
 
 	products, err := s.productRepo.GetAllProduct(ctx)
@@ -176,7 +176,7 @@ func (s *productService) GetByID(ctx context.Context, id string) (*model.Product
 	var baseLogFields = log.Fields{
 		"product_id": id,
 		"layer":      "product_service",
-		"operation":  "product_getByID",
+		"method":     "product_getByID",
 	}
 
 	var product model.Product
