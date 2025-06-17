@@ -50,9 +50,6 @@ var (
 
 func main() {
 	// ------------------------------ Setup Config ------------------------------
-	overallStart := time.Now()
-	start := time.Now()
-
 	appcore_config.InitConfigurations()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -72,7 +69,6 @@ func main() {
 	useMongo := false
 
 	if useMongo {
-		start = time.Now()
 		initMongoCtx, initMongoCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer initMongoCancel()
 
@@ -81,76 +77,54 @@ func main() {
 			log.Panic("fail to connect mongodb: ", err)
 		}
 
-		log.Printf("[Startup]: MongoDB connection took %s", time.Since(start))
 		dbRepo = db.NewMongoRepo(mgDBInstant, "miniproject")
 
 	} else {
-		start = time.Now()
 		pgDBInstant, err = db.InitPsqlDB()
 
 		if err != nil {
 			log.Panic("fail to connect psqldb: ", err)
 		}
 
-		log.Printf("[Startup]: PostgreSQL connection took %s", time.Since(start))
 		dbRepo = db.NewPsqlRepo(pgDBInstant)
 	}
 
 	// ------------------------------ Init 3rd party ------------------------------
 	// init redis client
-	start = time.Now()
 	redisClientInstant = rclient.InitRedisClient()
-	log.Printf("[Startup]: Redis client initialization took %s", time.Since(start))
 	cacheSvc := rclient.NewCacheService(redisClientInstant)
 	router := gin.Default()
 
 	// init mail client
-	start = time.Now()
 	mailClient := mail.InitMailClient()
-	log.Printf("[Startup]: Mail client initialization took %s", time.Since(start))
 	mailService := mail.NewMailService(mailClient)
 
 	// init rabbitmq
-	start = time.Now()
-
-	// open rabbitmq connection 
 	rabbitMQConn = messagebroker.InitRabbitmq()
-	log.Printf("[Startup]: RabbitMQ connection took %s", time.Since(start))
-
-	// open channel depen on service(use-case)
-	start = time.Now()
 
 	// rabbitMQChannel = messagebroker.OpenChannel(rabbitMQConn)
 	producerChannel = messagebroker.OpenChannel(rabbitMQConn)
 	userConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
 	stockConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
 
-	log.Printf("[Startup]: RabbitMQ channel open took %s", time.Since(start))
-
 	// user&stock setup rabbitmq
-	start = time.Now()
 	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{
-		ExchangeName: messagebroker.UserExchangeName, 
-		ExchangeType: messagebroker.UserExchangeType, 
-		QueueName: messagebroker.UserQueueName, 
-		RoutingKey: "user.#",
+		ExchangeName: messagebroker.UserExchangeName,
+		ExchangeType: messagebroker.UserExchangeType,
+		QueueName:    messagebroker.UserQueueName,
+		RoutingKey:   "user.#",
 	})
 	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{
-		ExchangeName: messagebroker.StockExchangeName, 
-		ExchangeType: messagebroker.StockExchangeType, 
-		QueueName: messagebroker.StockQueueName, 
-		RoutingKey: "stock.#",
+		ExchangeName: messagebroker.StockExchangeName,
+		ExchangeType: messagebroker.StockExchangeType,
+		QueueName:    messagebroker.StockQueueName,
+		RoutingKey:   "stock.#",
 	})
 
-	log.Printf("[Startup]: RabbitMQ queue setup took %s", time.Since(start))
-
-	start = time.Now()
 	producerService := messagebroker.NewProducerService(producerChannel)
-	log.Printf("[Startup]: Message broker services creation took %s", time.Since(start))
 
 	// ------------------------------ Start service ------------------------------
 	// User and Auth
-	start = time.Now()
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
 	userService := userSvc.NewUserService(userRepository, producerService)
 	authService := auth.NewAuthService(userService, producerService)
@@ -158,33 +132,25 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	api.RegisterUserAPI(router, userHandler, authService)
 	api.RegisterAuthAPI(router, authHandler)
-	log.Printf("[Startup]: User and Auth services setup took %s", time.Since(start))
 
 	// Product && Stock
 	// stock
-	start = time.Now()
 	stockRepository := stockRepo.NewStockRepo(dbRepo, cacheSvc)
 	stockService := stockSvc.NewStockService(stockRepository)
-	log.Printf("[Startup]: Stock services setup took %s", time.Since(start))
 
 	// product
-	start = time.Now()
 	productRepo := productRepo.NewProductRepo(dbRepo, cacheSvc)
 	productSvc := productSvc.NewProductService(productRepo, producerService)
 	productHandler := handler.NewProductHandler(productSvc)
 	api.RegisterProductAPI(router, productHandler, authService)
-	log.Printf("[Startup]: Product services setup took %s", time.Since(start))
 
 	// Order
-	start = time.Now()
 	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
 	orderService := orderSvc.NewOrderService(orderRepository, productSvc, producerService)
 	orderHandler := handler.NewOrderHandler(orderService)
 	api.RegisterOrderAPI(router, orderHandler, authService)
-	log.Printf("[Startup]: Order services setup took %s", time.Since(start))
 
 	// Message
-	start = time.Now()
 	messageRepository := messageRepo.NewMessageRepo(dbRepo, cacheSvc)
 	messageService := messageSvc.NewMessageService(messageRepository)
 
@@ -193,7 +159,6 @@ func main() {
 	chatRealtime := realtime.NewChatRealtime(websocketServer, messageService, authService)
 	messageHandler := handler.NewMessageHandler(chatRealtime)
 	api.RegisterMessageAPI(router, messageHandler, authService)
-	log.Printf("[Startup]: Message services setup took %s", time.Since(start))
 
 	consumeService := messagebroker.NewConsumerService(rabbitMQConn, userConsumeChannel, mailService, stockService)
 
@@ -216,8 +181,6 @@ func main() {
 			}
 		}
 	}()
-
-	log.Printf("[Time]: Overall application [startup] took %s", time.Since(overallStart))
 
 	// ------------------------------ Shutdown ------------------------------
 	quit := make(chan os.Signal, 1)
