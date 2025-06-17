@@ -26,6 +26,7 @@ var (
 
 	ErrVerifyUser       = errors.New("failed to verify user")
 	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
+	ErrMarShal          = errors.New("failed to marshal object")
 )
 
 type userService struct {
@@ -44,37 +45,38 @@ func NewUserService(userRepo repository.UserRepository, producerSvc messagebroke
 // ------------------------ Method Basic UD ------------------------
 func (us *userService) Save(ctx context.Context, user *model.User) error {
 	user.ID = primitive.NewObjectID().Hex()
-	var baseLogFileds = log.Fields{
-		"user_id":   user.ID,
-		"layer":     "auth_service",
-		"operation": "register",
+	var baseLogFields = log.Fields{
+		"user_id": user.ID,
+		"layer":   "user_service",
+		"method":  "register",
 	}
 
 	if err := user.Verify(); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFields).Error("verify")
 		return ErrVerifyUser
 	}
 
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = user.CreatedAt
 	if err := user.SetPassword(user.Password); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFields).Error("set password")
 		return ErrCreateUser
 	}
 
 	if err := us.userRepo.AddUser(ctx, user); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFields).Error("add user")
 		return ErrCreateUser
 	}
 
 	bodyByte, err := json.Marshal(user)
 	if err != nil {
-		return err
+		log.WithError(err).WithFields(baseLogFields).Error("marshal")
+		return ErrMarShal
 	}
 
 	mqConf := &model.MQConfig{ExchangeName: messagebroker.UserExchangeName, ExchangeType: messagebroker.UserExchangeType, QueueName: messagebroker.UserQueueName, RoutingKey: "user.create"}
 	if err := us.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFields)
 		return ErrSendWelcomeEmail
 	}
 
@@ -89,31 +91,32 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 	}
 
 	if err := req.Verify(); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to verify user")
+		log.WithError(err).WithFields(baseLogFields).Error("verify")
 		return err
 	}
 
 	var currentUser model.User
 	if err := us.userRepo.GetUserByID(ctx, id, &currentUser); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get user by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get user by id")
 		return ErrUserNotFound
 	}
 
 	currentUser.SetDefaultNotNilField(req)
 	if err := us.userRepo.UpdateUser(ctx, &currentUser, id); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to update user")
+		log.WithError(err).WithFields(baseLogFields).Error("update user")
 		return ErrUpdateUser
 	}
 	log.Printf("[Service]: user {%s} updated success:", currentUser.ID)
 
 	bodyByte, err := json.Marshal(currentUser)
 	if err != nil {
-		return err
+		log.WithError(err).WithFields(baseLogFields).Error("marshal")
+		return ErrMarShal
 	}
 
 	mqConf := &model.MQConfig{ExchangeName: messagebroker.UserExchangeName, ExchangeType: messagebroker.UserExchangeType, QueueName: messagebroker.UserQueueName, RoutingKey: "user.update"}
 	if err := us.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("fail to publish")
+		log.WithError(err).WithFields(baseLogFields).Error("publishing")
 		return err
 	}
 
@@ -129,12 +132,12 @@ func (us *userService) Delete(ctx context.Context, id string) error {
 
 	var user model.User
 	if err := us.userRepo.GetUserByID(ctx, id, &user); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get user by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get user by id")
 		return ErrUserNotFound
 	}
 
 	if err := us.userRepo.DeleteUser(ctx, id, &user); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to delete user")
+		log.WithError(err).WithFields(baseLogFields).Error("delete user")
 		return ErrDeleteUser
 	}
 	log.Printf("[Service]: user {%s} deleted success:", user.ID)
@@ -151,7 +154,7 @@ func (us *userService) GetAll(ctx context.Context) ([]model.User, error) {
 
 	users, err := us.userRepo.GetAllUser(ctx)
 	if err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get all user")
+		log.WithError(err).WithFields(baseLogFields).Error("get all user")
 		return nil, ErrUserNotFound
 	}
 
@@ -168,7 +171,7 @@ func (us *userService) GetByID(ctx context.Context, id string) (*model.User, err
 
 	var user model.User
 	if err := us.userRepo.GetUserByID(ctx, id, &user); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get user by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get user by id")
 		return nil, ErrUserNotFound
 	}
 
@@ -185,7 +188,7 @@ func (us *userService) GetByEmail(ctx context.Context, email string) (*model.Use
 
 	var user model.User
 	if err := us.userRepo.GetUserByEmail(ctx, email, &user); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get user by email")
+		log.WithError(err).WithFields(baseLogFields).Error("get user by email")
 		return nil, ErrUserNotFound
 	}
 
