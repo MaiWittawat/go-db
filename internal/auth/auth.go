@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	messagebroker "go-rebuild/internal/message_broker"
@@ -16,24 +15,14 @@ import (
 )
 
 var (
-	// user queue
-	ExchangeName = "user_exchange"
-	ExchangeType = "direct"
-	QueueName    = "user_queue"
-
 	// error
 	ErrUserAlreadyExists  = errors.New("user already exists with this email")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrCreateToken        = errors.New("failed to create token")
-	ErrEmptyToken         = errors.New("token is empty")
-	ErrInvalidToken       = errors.New("invalid token")
 
 	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
 	ErrInternalServer   = errors.New("internal server error")
-	ErrVerifyUser       = errors.New("failed to verify user")
 	ErrVerifyToken      = errors.New("token verification failed")
-	ErrUserNotFound     = errors.New("user not found")
-	ErrUnauthorized     = errors.New("unauthorized access, please login")
 )
 
 type authService struct {
@@ -138,37 +127,9 @@ func (a *authService) Login(ctx context.Context, user *model.User) (*string, err
 }
 
 func (a *authService) Register(ctx context.Context, user *model.User) error {
-	var baseLogFileds = log.Fields{
-		"user_id":   user.ID,
-		"layer":     "auth_service",
-		"operation": "register",
-	}
-
 	if err := a.userSvc.Save(ctx, user); err != nil {
 		return err
 	}
-
-	body, err := json.Marshal(user)
-	if err != nil {
-		return err
-	}
-
-	packet := model.Envelope{
-		Type:    "create_user",
-		Payload: body,
-	}
-
-	packetByte, err := json.Marshal(packet)
-	if err != nil {
-		return err
-	}
-
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "user.create")
-	if err := a.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
-		return ErrSendWelcomeEmail
-	}
-
 	return nil
 }
 

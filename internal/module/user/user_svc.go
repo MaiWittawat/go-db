@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
@@ -29,7 +30,8 @@ var (
 	ErrUserNotFound     = errors.New("user not found")
 	ErrSendEmailMessage = errors.New("failed to send email message")
 
-	ErrVerifyUser = errors.New("failed to verify user")
+	ErrVerifyUser       = errors.New("failed to verify user")
+	ErrSendWelcomeEmail = errors.New("failed to send welcome email")
 )
 
 type userService struct {
@@ -71,6 +73,27 @@ func (us *userService) Save(ctx context.Context, user *model.User) error {
 		return ErrCreateUser
 	}
 
+	body, err := json.Marshal(user)
+	if err != nil {
+		return err
+	}
+
+	packet := model.Envelope{
+		Type:    "create_user",
+		Payload: body,
+	}
+
+	packetByte, err := json.Marshal(packet)
+	if err != nil {
+		return err
+	}
+
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "user.create"}
+	if err := us.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+		log.WithError(err).WithFields(baseLogFileds)
+		return ErrSendWelcomeEmail
+	}
+
 	return nil
 }
 
@@ -104,7 +127,7 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 		return err
 	}
 
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "user.update")
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "user.update"}
 	if err := us.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("fail to publish")
 		return err
@@ -171,9 +194,9 @@ func (us *userService) GetByID(ctx context.Context, id string) (*model.User, err
 
 func (us *userService) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	var baseLogFields = log.Fields{
-		"user_email":  email,
-		"layer":     "user_service",
-		"operation": "user_getByEmail",
+		"user_email": email,
+		"layer":      "user_service",
+		"operation":  "user_getByEmail",
 	}
 
 	var user model.User

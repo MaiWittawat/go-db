@@ -3,38 +3,24 @@ package messagebroker
 import (
 	"context"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
+	"go-rebuild/internal/model"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
 )
 
-type MQConfig struct {
-	ExchangeName string
-	ExchangeType string
-	QueueName    string
-	RoutingKey   string
-}
-
 type ConsumerService interface {
-	Consuming(queueName string, tag string) error
+	EmailConsuming(queueName string, tag string) error
+	StockConsuming(queueName string, tag string) error
 }
 
 type ProducerService interface {
-	Publishing(ctx context.Context, mqConf *MQConfig, body []byte) error
+	Publishing(ctx context.Context, mqConf *model.MQConfig, body []byte) error
 }
 
 func HandleError(err error, msg string) {
 	if err != nil {
 		log.Printf("%s:, %v", msg, err)
-	}
-}
-
-func NewMQConfig(exName, exType, qName, routingKey string) *MQConfig {
-	return &MQConfig{
-		ExchangeName: exName,
-		ExchangeType: exType,
-		QueueName:    qName,
-		RoutingKey:   routingKey,
 	}
 }
 
@@ -44,7 +30,7 @@ func InitRabbitmq() *amqp.Connection {
 	return conn
 }
 
-func SetupExchangeAndQueue(ch *amqp.Channel, cfg *MQConfig) error {
+func SetupExchangeAndQueue(ch *amqp.Channel, cfg *model.MQConfig) error {
 	DeclareExchange(ch, cfg.ExchangeName, cfg.ExchangeType)
 	DeclareQueue(ch, cfg.QueueName)
 	BindQueueToExchange(ch, cfg.QueueName, cfg.ExchangeName, cfg.RoutingKey)

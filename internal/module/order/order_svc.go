@@ -68,7 +68,7 @@ func (s *orderService) Save(ctx context.Context, oReq *model.OrderReq, userID st
 		return err
 	}
 
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.update")
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
 	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (s *orderService) Delete(ctx context.Context, id string, userID string) err
 		return err
 	}
 
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.update")
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
 	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		return err
 	}

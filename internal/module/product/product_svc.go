@@ -66,7 +66,7 @@ func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userI
 		return err
 	}
 
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.create")
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
 	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 		return err
 	}
 
-	mqConf := messagebroker.NewMQConfig(ExchangeName, ExchangeType, QueueName, "stock.update")
+	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
 	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
 		log.WithError(err).Error("fail to publish")
 		return ErrUpdateProduct

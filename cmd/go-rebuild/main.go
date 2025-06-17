@@ -10,6 +10,7 @@ import (
 	"go-rebuild/internal/handler/api"
 	"go-rebuild/internal/mail"
 	messagebroker "go-rebuild/internal/message_broker"
+	"go-rebuild/internal/model"
 	"go-rebuild/internal/realtime"
 
 	messageSvc "go-rebuild/internal/module/message"
@@ -127,12 +128,12 @@ func main() {
 	log.Printf("[Startup]: RabbitMQ channel open took %s", time.Since(start))
 
 	start = time.Now()
-	// user set rabbitmq up
-	userCreateQueueSetup(userConsumeChannel)
-	userUpdateQueueSetup(userConsumeChannel)
-	// stock set rabbitmq up
-	stockCreateQueueSetup(stockConsumeChannel)
-	stockUpdateQueueSetup(stockConsumeChannel)
+	
+	// user&stock setup rabbitmq 
+	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{ExchangeName: userSvc.ExchangeName, ExchangeType:  userSvc.ExchangeType, QueueName: "user.create"})
+	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{ExchangeName: userSvc.ExchangeName, ExchangeType:  userSvc.ExchangeType, QueueName: "user.update"})
+	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{ExchangeName: stockSvc.ExchangeName, ExchangeType:  stockSvc.ExchangeType, QueueName: "stock.create"})
+	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{ExchangeName: stockSvc.ExchangeName, ExchangeType:  stockSvc.ExchangeType, QueueName: "stock.create"})
 	log.Printf("[Startup]: RabbitMQ queue setup took %s", time.Since(start))
 
 	start = time.Now()
@@ -186,8 +187,8 @@ func main() {
 	api.RegisterMessageAPI(router, messageHandler, authService)
 	log.Printf("[Startup]: Message services setup took %s", time.Since(start))
 
-	userConsumeService := messagebroker.NewEmailConsumerService(rabbitMQConn, userConsumeChannel, mailService)
-	stockConsumeService := messagebroker.NewStockComsumeService(rabbitMQConn, stockConsumeChannel, stockService)
+	consumeService := messagebroker.NewConsumerService(rabbitMQConn, userConsumeChannel, mailService, stockService)
+
 
 	// ------------------------------ Start server ------------------------------
 	server := &http.Server{
@@ -205,8 +206,8 @@ func main() {
 		}
 	}()
 
-	go userConsumeService.Consuming(userSvc.QueueName, "user_consume")
-	go stockConsumeService.Consuming(stockSvc.QueueName, "stock_consume")
+	go consumeService.EmailConsuming(userSvc.QueueName, "user_consume")
+	go consumeService.StockConsuming(stockSvc.QueueName, "stock_consume")
 
 	log.Printf("[Time]: Overall application [startup] took %s", time.Since(overallStart))
 
@@ -219,31 +220,6 @@ func main() {
 	// call shutdown all service
 	gracefulShutdown(shutdownCtx, server)
 
-}
-
-// ------------------------------ Rabbitmq setup channel function ------------------------------
-func userCreateQueueSetup(ch *amqp.Channel) {
-	messagebroker.DeclareExchange(ch, userSvc.ExchangeName, userSvc.ExchangeType)
-	messagebroker.DeclareQueue(ch, userSvc.QueueName)
-	messagebroker.BindQueueToExchange(ch, userSvc.QueueName, userSvc.ExchangeName, "user.create")
-}
-
-func userUpdateQueueSetup(ch *amqp.Channel) {
-	messagebroker.DeclareExchange(ch, userSvc.ExchangeName, userSvc.ExchangeType)
-	messagebroker.DeclareQueue(ch, userSvc.QueueName)
-	messagebroker.BindQueueToExchange(ch, userSvc.QueueName, userSvc.ExchangeName, "user.update")
-}
-
-func stockCreateQueueSetup(ch *amqp.Channel) {
-	messagebroker.DeclareExchange(ch, stockSvc.ExchangeName, stockSvc.ExchangeType)
-	messagebroker.DeclareQueue(ch, stockSvc.QueueName)
-	messagebroker.BindQueueToExchange(ch, stockSvc.QueueName, stockSvc.ExchangeName, "stock.create")
-}
-
-func stockUpdateQueueSetup(ch *amqp.Channel) {
-	messagebroker.DeclareExchange(ch, stockSvc.ExchangeName, stockSvc.ExchangeType)
-	messagebroker.DeclareQueue(ch, stockSvc.QueueName)
-	messagebroker.BindQueueToExchange(ch, stockSvc.QueueName, stockSvc.ExchangeName, "stock.update")
 }
 
 // ------------------------------ Shutdown function ------------------------------

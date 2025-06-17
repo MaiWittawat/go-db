@@ -2,6 +2,7 @@ package messagebroker
 
 import (
 	"context"
+	"go-rebuild/internal/model"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	log "github.com/sirupsen/logrus"
@@ -15,7 +16,7 @@ func NewProducerService(ch *amqp.Channel) ProducerService {
 	return &producerService{ch: ch}
 }
 
-func (s *producerService) Publishing(ctx context.Context, mqConf *MQConfig, body []byte) error {
+func (s *producerService) Publishing(ctx context.Context, mqConf *model.MQConfig, body []byte) error {
 	if err := s.ch.PublishWithContext(
 		ctx,
 		mqConf.ExchangeName,
