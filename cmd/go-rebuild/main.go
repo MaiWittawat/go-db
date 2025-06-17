@@ -113,7 +113,7 @@ func main() {
 	// init rabbitmq
 	start = time.Now()
 
-	// open 1 connection
+	// open rabbitmq connection 
 	rabbitMQConn = messagebroker.InitRabbitmq()
 	log.Printf("[Startup]: RabbitMQ connection took %s", time.Since(start))
 
@@ -127,13 +127,21 @@ func main() {
 
 	log.Printf("[Startup]: RabbitMQ channel open took %s", time.Since(start))
 
+	// user&stock setup rabbitmq
 	start = time.Now()
-	
-	// user&stock setup rabbitmq 
-	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{ExchangeName: userSvc.ExchangeName, ExchangeType:  userSvc.ExchangeType, QueueName: "user.create"})
-	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{ExchangeName: userSvc.ExchangeName, ExchangeType:  userSvc.ExchangeType, QueueName: "user.update"})
-	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{ExchangeName: stockSvc.ExchangeName, ExchangeType:  stockSvc.ExchangeType, QueueName: "stock.create"})
-	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{ExchangeName: stockSvc.ExchangeName, ExchangeType:  stockSvc.ExchangeType, QueueName: "stock.create"})
+	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{
+		ExchangeName: messagebroker.UserExchangeName, 
+		ExchangeType: messagebroker.UserExchangeType, 
+		QueueName: messagebroker.UserQueueName, 
+		RoutingKey: "user.#",
+	})
+	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{
+		ExchangeName: messagebroker.StockExchangeName, 
+		ExchangeType: messagebroker.StockExchangeType, 
+		QueueName: messagebroker.StockQueueName, 
+		RoutingKey: "stock.#",
+	})
+
 	log.Printf("[Startup]: RabbitMQ queue setup took %s", time.Since(start))
 
 	start = time.Now()
@@ -189,6 +197,9 @@ func main() {
 
 	consumeService := messagebroker.NewConsumerService(rabbitMQConn, userConsumeChannel, mailService, stockService)
 
+	// start consume
+	go consumeService.EmailConsuming(messagebroker.UserQueueName, "user_consume")
+	go consumeService.StockConsuming(messagebroker.StockQueueName, "stock_consume")
 
 	// ------------------------------ Start server ------------------------------
 	server := &http.Server{
@@ -205,9 +216,6 @@ func main() {
 			}
 		}
 	}()
-
-	go consumeService.EmailConsuming(userSvc.QueueName, "user_consume")
-	go consumeService.StockConsuming(stockSvc.QueueName, "stock_consume")
 
 	log.Printf("[Time]: Overall application [startup] took %s", time.Since(overallStart))
 

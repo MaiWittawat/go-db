@@ -9,6 +9,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+
+var (
+	// user queue
+	UserExchangeName = "user_exchange"
+	UserExchangeType = "topic"
+	UserQueueName    = "user_queue"
+
+	// stock queue
+	StockExchangeName = "stock_exchange"
+	StockExchangeType = "topic"
+	StockQueueName    = "stock_queue"
+)
+
 type ConsumerService interface {
 	EmailConsuming(queueName string, tag string) error
 	StockConsuming(queueName string, tag string) error
@@ -20,7 +33,7 @@ type ProducerService interface {
 
 func HandleError(err error, msg string) {
 	if err != nil {
-		log.Printf("%s:, %v", msg, err)
+		log.Printf("[Error]: %s, %v", msg, err)
 	}
 }
 

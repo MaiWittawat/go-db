@@ -13,11 +13,6 @@ import (
 )
 
 var (
-	// stock queue
-	ExchangeName = "stock_exchange"
-	ExchangeType = "direct"
-	QueueName    = "stock_queue"
-
 	// error
 	ErrCreateStock   = errors.New("fail to create stock")
 	ErrUpdateStock   = errors.New("fail to update stock")

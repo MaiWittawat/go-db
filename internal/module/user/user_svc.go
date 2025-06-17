@@ -8,7 +8,6 @@ import (
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
-	utils "go-rebuild/internal/utlis"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -16,11 +15,6 @@ import (
 )
 
 var (
-	// queue
-	ExchangeName = "user_exchange"
-	ExchangeType = "direct"
-	QueueName    = "user_queue"
-
 	// error
 	ErrCreateUser       = errors.New("fail to create user")
 	ErrCreateSeller     = errors.New("fail to create seller")
@@ -73,23 +67,13 @@ func (us *userService) Save(ctx context.Context, user *model.User) error {
 		return ErrCreateUser
 	}
 
-	body, err := json.Marshal(user)
+	bodyByte, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 
-	packet := model.Envelope{
-		Type:    "create_user",
-		Payload: body,
-	}
-
-	packetByte, err := json.Marshal(packet)
-	if err != nil {
-		return err
-	}
-
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "user.create"}
-	if err := us.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{ExchangeName: messagebroker.UserExchangeName, ExchangeType: messagebroker.UserExchangeType, QueueName: messagebroker.UserQueueName, RoutingKey: "user.create"}
+	if err := us.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
 		return ErrSendWelcomeEmail
 	}
@@ -122,13 +106,13 @@ func (us *userService) Update(ctx context.Context, req *model.User, id string) e
 	}
 	log.Printf("[Service]: user {%s} updated success:", currentUser.ID)
 
-	packetByte, err := utils.BuildPacket("update_user", currentUser)
+	bodyByte, err := json.Marshal(currentUser)
 	if err != nil {
 		return err
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "user.update"}
-	if err := us.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{ExchangeName: messagebroker.UserExchangeName, ExchangeType: messagebroker.UserExchangeType, QueueName: messagebroker.UserQueueName, RoutingKey: "user.update"}
+	if err := us.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("fail to publish")
 		return err
 	}

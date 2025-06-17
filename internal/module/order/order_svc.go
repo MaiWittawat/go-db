@@ -2,23 +2,18 @@ package order
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
-	utils "go-rebuild/internal/utlis"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	// stock queue
-	ExchangeName = "stock_exchange"
-	ExchangeType = "direct"
-	QueueName    = "stock_queue"
-
 	// error
 	ErrCreateOrder = errors.New("fail to create order")
 	ErrUpdateOrder = errors.New("fail to update order")
@@ -63,13 +58,18 @@ func (s *orderService) Save(ctx context.Context, oReq *model.OrderReq, userID st
 	}
 	log.Info("[Service]: Order created success:", order)
 
-	packetByte, err := utils.BuildPacket("decrease_stock", model.Stock{ProductID: order.ProductID, Quantity: order.Quantity})
+	bodyByte, err := json.Marshal(model.Stock{ProductID: order.ProductID, Quantity: order.Quantity})
 	if err != nil {
 		return err
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
-	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{
+		ExchangeName: messagebroker.StockExchangeName, 
+		ExchangeType: messagebroker.StockExchangeType, 
+		QueueName: messagebroker.StockQueueName, 
+		RoutingKey: "stock.decrease",
+	}
+	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		return err
 	}
 
@@ -132,13 +132,18 @@ func (s *orderService) Delete(ctx context.Context, id string, userID string) err
 	}
 	log.Info("[Service]: order deleted success:", order)
 
-	packetByte, err := utils.BuildPacket("increase_stock", model.Stock{ProductID: order.ProductID, Quantity: order.Quantity})
+	bodyByte, err := json.Marshal(model.Stock{ProductID: order.ProductID, Quantity: order.Quantity})
 	if err != nil {
 		return err
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
-	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{
+		ExchangeName: messagebroker.StockExchangeName, 
+		ExchangeType: messagebroker.StockExchangeType, 
+		QueueName: messagebroker.StockQueueName, 
+		RoutingKey: "stock.increase",
+	}
+	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		return err
 	}
 

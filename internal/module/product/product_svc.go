@@ -2,12 +2,12 @@ package product
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/repository"
-	utils "go-rebuild/internal/utlis"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -15,11 +15,6 @@ import (
 )
 
 var (
-	// stock queue
-	ExchangeName = "stock_exchange"
-	ExchangeType = "direct"
-	QueueName    = "stock_queue"
-
 	// error
 	ErrCreateProduct   = errors.New("fail to create product")
 	ErrUpdateProduct   = errors.New("fail to update product")
@@ -61,13 +56,13 @@ func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userI
 	}
 	log.Printf("[Service]: product {%s} created success", product.ID)
 
-	packetByte, err := utils.BuildPacket("create_stock", &model.Stock{ProductID: product.ID, Quantity: pReq.Quantity})
+	bodyByte, err := json.Marshal(&model.Stock{ProductID: product.ID, Quantity: pReq.Quantity})
 	if err != nil {
 		return err
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
-	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{ExchangeName: messagebroker.StockExchangeName, ExchangeType: messagebroker.StockExchangeType, QueueName: messagebroker.StockQueueName, RoutingKey: "stock.create"}
+	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		return err
 	}
 
@@ -107,14 +102,14 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 		return ErrUpdateProduct
 	}
 
-	packetByte, err := utils.BuildPacket("update_stock", &model.Stock{ProductID: currentProduct.ID, Quantity: pReq.Quantity})
+	bodyByte, err := json.Marshal(&model.Stock{ProductID: currentProduct.ID, Quantity: pReq.Quantity})
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("failed to build stock packet")
 		return err
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: ExchangeName, ExchangeType: ExchangeType, QueueName: QueueName, RoutingKey: "stock.update"}
-	if err := s.producerSvc.Publishing(ctx, mqConf, packetByte); err != nil {
+	mqConf := &model.MQConfig{ExchangeName: messagebroker.StockExchangeName, ExchangeType: messagebroker.StockExchangeType, QueueName: messagebroker.StockQueueName, RoutingKey: "stock.update"}
+	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
 		log.WithError(err).Error("fail to publish")
 		return ErrUpdateProduct
 	}
