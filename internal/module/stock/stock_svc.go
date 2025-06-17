@@ -40,15 +40,15 @@ func (s *stockService) Save(ctx context.Context, productID string, quantity int)
 	}
 
 	var baseLogFields = log.Fields{
-		"stock_id":  stock.ID,
-		"layer":     "stock_service",
-		"operation": "stock.create",
+		"stock_id": stock.ID,
+		"layer":    "stock_service",
+		"method":   "stock_create",
 	}
 
 	stock.SetQuantity(quantity)
 
 	if err := s.repo.AddStock(ctx, &stock); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to create stock")
+		log.WithError(err).WithFields(baseLogFields).Error("add stock")
 		return ErrCreateStock
 	}
 
@@ -60,16 +60,17 @@ func (s *stockService) Update(ctx context.Context, productID string, quantity in
 	var baseLogFields = log.Fields{
 		"product_id": productID,
 		"layer":      "stock_service",
-		"operation":  "stock.update",
+		"method":     "stock_update",
 	}
+
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get stock by product id")
+		log.WithError(err).WithFields(baseLogFields).Error("get stock by product id")
 		return ErrUpdateStock
 	}
 
 	currentStock.SetQuantity(quantity)
 	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to update stock")
+		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
 
@@ -81,11 +82,11 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 	var baseLogFields = log.Fields{
 		"product_id": productID,
 		"layer":      "stock_service",
-		"operation":  "stock.increase",
+		"method":     "stock_increase",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("stock not found using id")
+		log.WithError(err).WithFields(baseLogFields).Error("get stock by product id")
 		return ErrStockNotFound
 	}
 
@@ -93,7 +94,7 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 	currentStock.UpdatedAt = time.Now()
 
 	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("stock updated fail")
+		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
 
@@ -105,21 +106,22 @@ func (s *stockService) DecreaseQuantity(ctx context.Context, quantity int, produ
 	var baseLogFields = log.Fields{
 		"product_id": productID,
 		"layer":      "stock_service",
-		"operation":  "stock.decrease",
+		"method":     "stock_decrease",
 	}
 
 	if err := s.repo.GetStockByProductID(ctx, productID, &currentStock); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("stock not found using id")
+		log.WithError(err).WithFields(baseLogFields).Error("get stock by product id")
 		return ErrStockNotFound
 	}
 
 	if err := currentStock.DecreaseQuantity(quantity); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("fail to decrease quantity in stock")
+		log.WithError(err).WithFields(baseLogFields).Error("decrease quantity")
 		return ErrUpdateStock
 	}
 
 	currentStock.UpdatedAt = time.Now()
 	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
 
