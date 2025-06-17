@@ -28,7 +28,6 @@ func (s *producerService) Publishing(ctx context.Context, mqConf *model.MQConfig
 			Body:        body,
 		},
 	); err != nil {
-		log.Error(err)
 		return err
 	}
 	log.Info("[Publisher]: Publish success")

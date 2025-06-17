@@ -21,6 +21,7 @@ var (
 	ErrDeleteProduct   = errors.New("fail to delete product")
 	ErrProductNotFound = errors.New("product not found")
 	ErrPermission      = errors.New("no permission")
+	ErrMarShal         = errors.New("failed to marshal object")
 )
 
 type productService struct {
@@ -47,22 +48,30 @@ func (s *productService) Save(ctx context.Context, pReq *model.ProductReq, userI
 	var baseLogFields = log.Fields{
 		"product_id": product.ID,
 		"layer":      "product_service",
-		"operation":  "product_save",
+		"method":     "product_save",
 	}
 
 	if err := s.productRepo.AddProduct(ctx, product); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to save product")
+		log.WithError(err).WithFields(baseLogFields).Error("add product")
 		return ErrCreateProduct
 	}
 	log.Printf("[Service]: product {%s} created success", product.ID)
 
 	bodyByte, err := json.Marshal(&model.Stock{ProductID: product.ID, Quantity: pReq.Quantity})
 	if err != nil {
-		return err
+		log.WithError(err).WithFields(baseLogFields).Error("json marshal")
+		return ErrMarShal
 	}
 
-	mqConf := &model.MQConfig{ExchangeName: messagebroker.StockExchangeName, ExchangeType: messagebroker.StockExchangeType, QueueName: messagebroker.StockQueueName, RoutingKey: "stock.create"}
+	mqConf := &model.MQConfig{
+		ExchangeName: messagebroker.StockExchangeName,
+		ExchangeType: messagebroker.StockExchangeType,
+		QueueName:    messagebroker.StockQueueName,
+		RoutingKey:   "stock.create",
+	}
+
 	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
+		log.WithError(err).WithFields(baseLogFields).Error("publishing")
 		return err
 	}
 
@@ -82,13 +91,13 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 	}
 
 	if err := updateProduct.Verify(); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to verify product")
+		log.WithError(err).WithFields(baseLogFields).Error("verify")
 		return err
 	}
 
 	var currentProduct model.Product
 	if err := s.productRepo.GetProductByID(ctx, id, &currentProduct); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get product by id")
 		return ErrProductNotFound
 	}
 
@@ -98,19 +107,19 @@ func (s *productService) Update(ctx context.Context, pReq *model.ProductReq, id 
 
 	currentProduct.UpdateNotNilField(pReq)
 	if err := s.productRepo.UpdateProduct(ctx, &currentProduct, id); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to update product")
+		log.WithError(err).WithFields(baseLogFields).Error("update product")
 		return ErrUpdateProduct
 	}
 
 	bodyByte, err := json.Marshal(&model.Stock{ProductID: currentProduct.ID, Quantity: pReq.Quantity})
 	if err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to build stock packet")
-		return err
+		log.WithError(err).WithFields(baseLogFields).Error("json marshal")
+		return ErrMarShal
 	}
 
 	mqConf := &model.MQConfig{ExchangeName: messagebroker.StockExchangeName, ExchangeType: messagebroker.StockExchangeType, QueueName: messagebroker.StockQueueName, RoutingKey: "stock.update"}
 	if err := s.producerSvc.Publishing(ctx, mqConf, bodyByte); err != nil {
-		log.WithError(err).Error("fail to publish")
+		log.WithError(err).WithFields(baseLogFields).Error("publishing")
 		return ErrUpdateProduct
 	}
 
@@ -127,12 +136,12 @@ func (s *productService) Delete(ctx context.Context, id string) error {
 
 	var product model.Product
 	if err := s.productRepo.GetProductByID(ctx, id, &product); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get product by id")
 		return ErrProductNotFound
 	}
 
 	if err := s.productRepo.DeleteProduct(ctx, id); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to delete product")
+		log.WithError(err).WithFields(baseLogFields).Error("delete product")
 		return ErrDeleteProduct
 	}
 
@@ -149,7 +158,7 @@ func (s *productService) GetAll(ctx context.Context) ([]model.ProductResp, error
 
 	products, err := s.productRepo.GetAllProduct(ctx)
 	if err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get all product")
+		log.WithError(err).WithFields(baseLogFields).Error("get all product")
 		return nil, ErrProductNotFound
 	}
 
@@ -172,7 +181,7 @@ func (s *productService) GetByID(ctx context.Context, id string) (*model.Product
 
 	var product model.Product
 	if err := s.productRepo.GetProductByID(ctx, id, &product); err != nil {
-		log.WithError(err).WithFields(baseLogFields).Error("failed to get product by id")
+		log.WithError(err).WithFields(baseLogFields).Error("get product by id")
 		return nil, ErrProductNotFound
 	}
 
