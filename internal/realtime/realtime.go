@@ -13,21 +13,27 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type ChatRealtime struct {
+type Realtime interface {
+	Online(userID string, conn *websocket.Conn) error
+	Offline(userID string, conn *websocket.Conn) error
+	SendTo(userID string, data any) error
+}
+
+type LiveChat struct {
 	realtimeSvc Realtime
 	messageSvc  module.MessageService
 	authSvc     auth.Jwt
 }
 
-func NewChatRealtime(realtimeSvc Realtime, messageSvc module.MessageService, authSvc auth.Jwt) *ChatRealtime {
-	return &ChatRealtime{
+func NewLiveChat(realtimeSvc Realtime, messageSvc module.MessageService, authSvc auth.Jwt) *LiveChat {
+	return &LiveChat{
 		realtimeSvc: realtimeSvc,
 		messageSvc:  messageSvc,
 		authSvc:     authSvc,
 	}
 }
 
-func (cr *ChatRealtime) Listen(userID string, conn *websocket.Conn) {
+func (cr *LiveChat) Listen(userID string, conn *websocket.Conn) {
 	// Register user
 	authenticated := false
 
@@ -68,7 +74,7 @@ func (cr *ChatRealtime) Listen(userID string, conn *websocket.Conn) {
 				continue
 			}
 
-		case "Authorization":
+		case "authorization":
 			// เช็คว่า authenticate ไปรึยัง
 			if authenticated {
 				conn.WriteJSON(map[string]string{"type": "ERROR", "error": "already authenticated"})

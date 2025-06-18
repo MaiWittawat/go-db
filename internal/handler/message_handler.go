@@ -11,13 +11,14 @@ import (
 )
 
 type MessageHandler struct {
-	chatRealtime *realtime.ChatRealtime
-	messageSvc   module.MessageService
+	liveChat   *realtime.LiveChat
+	messageSvc module.MessageService
 }
 
-func NewMessageHandler(chatRealtime *realtime.ChatRealtime) *MessageHandler {
+func NewMessageHandler(liveChat *realtime.LiveChat, messageSvc module.MessageService) *MessageHandler {
 	return &MessageHandler{
-		chatRealtime: chatRealtime,
+		liveChat: liveChat,
+		messageSvc: messageSvc,
 	}
 }
 
@@ -36,7 +37,7 @@ func (h *MessageHandler) Connect(c *gin.Context) {
 		return
 	}
 	log.Println("in connect pass go to listen")
-	go h.chatRealtime.Listen(userID, conn) // ไม่ block Gin handler
+	go h.liveChat.Listen(userID, conn) // ไม่ block Gin handler
 }
 
 func (h *MessageHandler) GetMessagesBetweenUser(c *gin.Context) {

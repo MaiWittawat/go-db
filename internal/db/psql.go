@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"go-rebuild/internal/model"
 
@@ -24,13 +25,21 @@ func InitPsqlDB() (*gorm.DB, error) {
 }
 
 // ------------------------ Constructor ------------------------
-func NewPsqlRepo(db *gorm.DB) DB {
-	db.AutoMigrate(&model.User{})
-	db.AutoMigrate(&model.Product{})
-	db.AutoMigrate(&model.Stock{})
-	db.AutoMigrate(&model.Order{})
-	db.AutoMigrate(&model.Message{})
-	return &psqlRepo{db: db}
+func NewPsqlRepo(db *gorm.DB) (DB, error) {
+	model := []interface{}{
+		&model.User{},
+		&model.Product{},
+		&model.Stock{},
+		&model.Order{},
+		&model.Message{},
+	}
+
+	for _, m := range model {
+		if err := db.AutoMigrate(m); err != nil {
+			return nil, fmt.Errorf("failed to auto migrate model %T: %w", m, err)
+		}
+	}
+	return &psqlRepo{db: db}, nil
 }
 
 // ------------------------ Method Basic CUD ------------------------

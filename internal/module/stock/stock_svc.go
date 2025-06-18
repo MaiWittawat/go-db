@@ -9,7 +9,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -33,16 +32,15 @@ func NewStockService(repo repository.StockRepository) module.StockService {
 // ------------------------ Method Basic CUD ------------------------
 func (s *stockService) Save(ctx context.Context, productID string, quantity int) error {
 	var stock = model.Stock{
-		ID:        primitive.NewObjectID().Hex(),
 		ProductID: productID,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 
 	var baseLogFields = log.Fields{
-		"stock_id": stock.ID,
-		"layer":    "stock_service",
-		"method":   "stock_save",
+		"product_id": productID,
+		"layer":      "stock_service",
+		"method":     "stock_save",
 	}
 
 	stock.SetQuantity(quantity)
@@ -69,7 +67,7 @@ func (s *stockService) Update(ctx context.Context, productID string, quantity in
 	}
 
 	currentStock.SetQuantity(quantity)
-	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+	if err := s.repo.UpdateStock(ctx, &currentStock); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
@@ -93,7 +91,7 @@ func (s *stockService) IncreaseQuantity(ctx context.Context, quantity int, produ
 	currentStock.IncreaseQuantity(quantity)
 	currentStock.UpdatedAt = time.Now()
 
-	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+	if err := s.repo.UpdateStock(ctx, &currentStock); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
@@ -120,7 +118,7 @@ func (s *stockService) DecreaseQuantity(ctx context.Context, quantity int, produ
 	}
 
 	currentStock.UpdatedAt = time.Now()
-	if err := s.repo.UpdateStock(ctx, &currentStock, currentStock.ID); err != nil {
+	if err := s.repo.UpdateStock(ctx, &currentStock); err != nil {
 		log.WithError(err).WithFields(baseLogFields).Error("update stock")
 		return ErrUpdateStock
 	}
@@ -133,3 +131,18 @@ func (s *stockService) Delete(ctx context.Context, id string) error {
 }
 
 // ------------------------ Method Basic Query ------------------------
+func (s *stockService) GetAll(ctx context.Context) ([]model.Stock, error) {
+	stocks, err := s.repo.GetAllStock(ctx)
+	if err != nil {
+		return nil, ErrStockNotFound
+	}
+	return stocks, nil
+}
+
+func (s *stockService) GetByProductID(ctx context.Context, productID string) (*model.Stock, error) {
+	var stock model.Stock
+	if err := s.repo.GetStockByID(ctx, productID, &stock); err != nil {
+		return nil, ErrStockNotFound
+	}
+	return &stock, nil
+}

@@ -16,10 +16,12 @@ type MessageRepository interface {
 
 type StockRepository interface {
 	AddStock(ctx context.Context, s *model.Stock) error
-	UpdateStock(ctx context.Context, s *model.Stock, id string) error
+	UpdateStock(ctx context.Context, s *model.Stock) error
 	DeleteStock(ctx context.Context, id string) error
 
 	GetStockByProductID(ctx context.Context, productID string, stock *model.Stock) error
+	GetAllStock(ctx context.Context) ([]model.Stock, error)
+	GetStockByID(ctx context.Context, productID string, s *model.Stock) error
 }
 
 type OrderRepository interface {

@@ -51,13 +51,13 @@ func (r *StockRepo) AddStock(ctx context.Context, s *model.Stock) error {
 	return nil
 }
 
-func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) error {
+func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock) error {
 	var currentStock model.Stock
-	if err := r.db.GetByID(ctx, r.collection, id, &currentStock); err != nil {
+	if err := r.db.GetByID(ctx, r.collection, s.ProductID, &currentStock); err != nil {
 		log.WithError(err).WithFields(log.Fields{
-			"stock_id": id,
-			"layer":    "repository",
-			"step":     "update.stock",
+			"product_id": s.ProductID,
+			"layer":      "repository",
+			"step":       "update.stock",
 		}).Error("[Repo]: failed to get stock by id")
 		return err
 	}
@@ -69,7 +69,7 @@ func (r *StockRepo) UpdateStock(ctx context.Context, s *model.Stock, id string) 
 	}
 
 	// update stock data in db
-	if err := r.db.Update(ctx, r.collection, s, id); err != nil {
+	if err := r.db.Update(ctx, r.collection, s, s.ProductID); err != nil {
 		return err
 	}
 
@@ -104,7 +104,7 @@ func (r *StockRepo) DeleteStock(ctx context.Context, id string) error {
 	cacheKeyProductID := r.keyGen.KeyField("product_id", id)
 	if err := r.cacheSvc.Delete(ctx, cacheKeyProductID); err != nil {
 		log.Warn("[Repo]: failed to clear stock cacheKeyProductID in DeletStock: ", err)
-	} 
+	}
 
 	return nil
 }
@@ -127,7 +127,22 @@ func (r *StockRepo) GetStockByProductID(ctx context.Context, productID string, s
 	// set stock cache in redis
 	if err := r.cacheSvc.Set(ctx, cacheKeyProductID, stock, 15*time.Minute); err != nil {
 		log.Warn("[Repo]: failed to set stock cacheKeyProductID in GetStockByProductID: ", err)
-	} 
+	}
 
+	return nil
+}
+
+func (r *StockRepo) GetAllStock(ctx context.Context) ([]model.Stock, error) {
+	var stocks []model.Stock
+	if err := r.db.GetAll(ctx, r.collection, &stocks); err != nil {
+		return nil, err
+	}
+	return stocks, nil
+}
+
+func (r *StockRepo) GetStockByID(ctx context.Context, productID string, stock *model.Stock)  error {
+	if err := r.db.GetByField(ctx, r.collection, "product_id", productID, &stock); err != nil {
+		return err
+	}
 	return nil
 }

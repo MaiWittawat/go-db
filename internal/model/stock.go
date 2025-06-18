@@ -13,8 +13,7 @@ var (
 
 
 type Stock struct {
-	ID        string     `gorm:"column:id;primaryKey"`
-	ProductID string     `gorm:"column:product_id;unique"`
+	ProductID string     `gorm:"column:product_id;primaryKey"`
 	Quantity  int        `gorm:"column:quantity"`
 	CreatedAt time.Time  `gorm:"column:created_at"`
 	UpdatedAt time.Time  `gorm:"column:updated_at"`

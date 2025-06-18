@@ -4,7 +4,7 @@ import (
 	"context"
 	appcore_config "go-rebuild/cmd/go-rebuild/config"
 	"go-rebuild/internal/auth"
-	rclient "go-rebuild/internal/cache"
+	redisclient "go-rebuild/internal/cache"
 	"go-rebuild/internal/db"
 	"go-rebuild/internal/handler"
 	"go-rebuild/internal/handler/api"
@@ -43,9 +43,6 @@ var (
 	pgDBInstant         *gorm.DB
 	redisClientInstant  *redis.Client
 	rabbitMQConn        *amqp.Connection
-	producerChannel     *amqp.Channel
-	userConsumeChannel  *amqp.Channel
-	stockConsumeChannel *amqp.Channel
 )
 
 func main() {
@@ -86,85 +83,88 @@ func main() {
 			log.Panic("fail to connect psqldb: ", err)
 		}
 
-		dbRepo = db.NewPsqlRepo(pgDBInstant)
+		dbRepo, err = db.NewPsqlRepo(pgDBInstant)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
+	router := gin.Default()
 	// ------------------------------ Init 3rd party ------------------------------
 	// init redis client
-	redisClientInstant = rclient.InitRedisClient()
-	cacheSvc := rclient.NewCacheService(redisClientInstant)
-	router := gin.Default()
+	redisClientInstant = redisclient.InitRedisClient(appcore_config.Config.RedisUrl, appcore_config.Config.RedisPass)
+	cacheSvc := redisclient.NewCacheService(redisClientInstant)
 
 	// init mail client
-	mailClient := mail.InitMailClient()
+	mailClient := mail.InitSMTP()
 	mailService := mail.NewMailService(mailClient)
+
+	// init websocket
+	websocketServer := realtime.NewWebSocketServer()
 
 	// init rabbitmq
 	rabbitMQConn = messagebroker.InitRabbitmq()
+	producerChannel := messagebroker.OpenChannel(rabbitMQConn)
+	userConsumeChannel := messagebroker.OpenChannel(rabbitMQConn)
+	stockConsumeChannel := messagebroker.OpenChannel(rabbitMQConn)
 
-	// rabbitMQChannel = messagebroker.OpenChannel(rabbitMQConn)
-	producerChannel = messagebroker.OpenChannel(rabbitMQConn)
-	userConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
-	stockConsumeChannel = messagebroker.OpenChannel(rabbitMQConn)
-
-	// user&stock setup rabbitmq
-	messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{
+	if err := messagebroker.SetupExchangeAndQueue(userConsumeChannel, &model.MQConfig{
 		ExchangeName: messagebroker.UserExchangeName,
 		ExchangeType: messagebroker.UserExchangeType,
 		QueueName:    messagebroker.UserQueueName,
 		RoutingKey:   "user.#",
-	})
-	messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{
+	}); err != nil {
+		log.Fatalf("Failed to setup user exchange and queue: %v", err)
+	}
+
+	if err := messagebroker.SetupExchangeAndQueue(stockConsumeChannel, &model.MQConfig{
 		ExchangeName: messagebroker.StockExchangeName,
 		ExchangeType: messagebroker.StockExchangeType,
 		QueueName:    messagebroker.StockQueueName,
 		RoutingKey:   "stock.#",
-	})
-
-	producerService := messagebroker.NewProducerService(producerChannel)
+	}); err != nil {
+		log.Fatalf("Failed to setup stock exchange and queue: %v", err)
+	}
 
 	// ------------------------------ Start service ------------------------------
-	// User and Auth
+	// Repository
 	userRepository := userRepo.NewUserRepo(dbRepo, cacheSvc)
+	ProductRepository := productRepo.NewProductRepo(dbRepo, cacheSvc)
+	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
+	stockRepository := stockRepo.NewStockRepo(dbRepo, cacheSvc)
+	messageRepository := messageRepo.NewMessageRepo(dbRepo, cacheSvc)
+
+	// Service
+	stockService := stockSvc.NewStockService(stockRepository)
+	producerService := messagebroker.NewProducer(producerChannel)
+	consumerService := messagebroker.NewConsumer(userConsumeChannel, stockConsumeChannel, mailService, stockService)
+	mqBroker := messagebroker.NewMessageBroker(producerService, consumerService)
 	userService := userSvc.NewUserService(userRepository, producerService)
 	authService := auth.NewAuthService(userService, producerService)
-	userHandler := handler.NewUserHandler(userService)
-	authHandler := handler.NewAuthHandler(authService)
-	api.RegisterUserAPI(router, userHandler, authService)
-	api.RegisterAuthAPI(router, authHandler)
-
-	// Product && Stock
-	// stock
-	stockRepository := stockRepo.NewStockRepo(dbRepo, cacheSvc)
-	stockService := stockSvc.NewStockService(stockRepository)
-
-	// product
-	productRepo := productRepo.NewProductRepo(dbRepo, cacheSvc)
-	productSvc := productSvc.NewProductService(productRepo, producerService)
-	productHandler := handler.NewProductHandler(productSvc)
-	api.RegisterProductAPI(router, productHandler, authService)
-
-	// Order
-	orderRepository := orderRepo.NewOrderRepo(dbRepo, cacheSvc)
+	productSvc := productSvc.NewProductService(ProductRepository, producerService)
 	orderService := orderSvc.NewOrderService(orderRepository, productSvc, producerService)
-	orderHandler := handler.NewOrderHandler(orderService)
-	api.RegisterOrderAPI(router, orderHandler, authService)
-
-	// Message
-	messageRepository := messageRepo.NewMessageRepo(dbRepo, cacheSvc)
 	messageService := messageSvc.NewMessageService(messageRepository)
+	liveChat := realtime.NewLiveChat(websocketServer, messageService, authService)
 
-	// Realtime service และ adapter
-	websocketServer := realtime.NewWebSocketServer()
-	chatRealtime := realtime.NewChatRealtime(websocketServer, messageService, authService)
-	messageHandler := handler.NewMessageHandler(chatRealtime)
+	// Handler
+	authHandler := handler.NewAuthHandler(authService)
+	userHandler := handler.NewUserHandler(userService)
+	productHandler := handler.NewProductHandler(productSvc)
+	orderHandler := handler.NewOrderHandler(orderService)
+	stockHandler := handler.NewStockHandler(stockService)
+	messageHandler := handler.NewMessageHandler(liveChat, messageService)
+
+	// API
+	api.RegisterAuthAPI(router, authHandler)
+	api.RegisterUserAPI(router, userHandler, authService)
+	api.RegisterProductAPI(router, productHandler, authService)
+	api.RegisterOrderAPI(router, orderHandler, authService)
+	api.RegisterStockAPI(router, stockHandler, authService)
 	api.RegisterMessageAPI(router, messageHandler, authService)
 
-	consumeService := messagebroker.NewConsumerService(rabbitMQConn, userConsumeChannel, mailService, stockService)
-
 	// start consume
-	go consumeService.EmailConsuming(messagebroker.UserQueueName, "user_consume")
-	go consumeService.StockConsuming(messagebroker.StockQueueName, "stock_consume")
+	go mqBroker.EmailConsuming(messagebroker.UserQueueName, "user_consume")
+	go mqBroker.StockConsuming(messagebroker.StockQueueName, "stock_consume")
 
 	// ------------------------------ Start server ------------------------------
 	server := &http.Server{
@@ -175,12 +175,14 @@ func main() {
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err == http.ErrServerClosed {
-				log.Info("[Down]: Server closed gracefully")
+				log.Info("[server]: Server closed gracefully")
 			} else {
 				log.Fatalf("listen: %s\n", err)
 			}
 		}
 	}()
+
+	log.Info("[server]: server start at port:3000")
 
 	// ------------------------------ Shutdown ------------------------------
 	quit := make(chan os.Signal, 1)
@@ -195,35 +197,13 @@ func main() {
 
 // ------------------------------ Shutdown function ------------------------------
 func rabbitShutdown() {
-	// close rabbitmq producer consume channel
-	if producerChannel != nil {
-		if err := producerChannel.Close(); err != nil {
-			log.Errorf("[RabbitMQ] producer consume channel shutdown error: %v", err)
-		}
-	}
-
-	// close rabbitmq user consume channel
-	if userConsumeChannel != nil {
-		if err := userConsumeChannel.Close(); err != nil {
-			log.Errorf("[RabbitMQ] user consume channel shutdown error: %v", err)
-		}
-	}
-
-	// close rabbitmq user consume channel
-	if stockConsumeChannel != nil {
-		if err := stockConsumeChannel.Close(); err != nil {
-			log.Errorf("[RabbitMQ] stock consume channel shutdown error: %v", err)
-		}
-	}
-
-	// close rabbitmq connection
+	// // close rabbitmq connection
 	if rabbitMQConn != nil {
 		if err := rabbitMQConn.Close(); err != nil {
 			log.Errorf("[RabbitMQ] connection shutdown error: %v", err)
 		}
 	}
-
-	log.Info("[Down]: Rabbitmq closed")
+	log.Info("[server]: Rabbitmq closed")
 }
 
 func redisShutdown() {
@@ -233,8 +213,7 @@ func redisShutdown() {
 			log.Errorf("[Redis] shutdown error: %v", err)
 		}
 	}
-
-	log.Info("[Down]: Redis closed")
+	log.Info("[server]: Redis closed")
 }
 
 func dbShutdown(ctx context.Context) {
@@ -254,11 +233,11 @@ func dbShutdown(ctx context.Context) {
 			}
 		}
 	}
-	log.Info("[Down]: DB closed")
+	log.Info("[server]: DB closed")
 }
 
 func gracefulShutdown(ctx context.Context, server *http.Server) {
-	log.Info("[Down]: Shutting down server...")
+	log.Info("[server]: Shutting down server...")
 	// close HTTP server
 	if err := server.Shutdown(ctx); err != nil {
 		log.Errorf("HTTP server Shutdown: %v", err)

@@ -8,12 +8,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Realtime interface {
-	Online(userID string, conn *websocket.Conn) error
-	Offline(userID string, conn *websocket.Conn) error
-	SendTo(userID string, data any) error
-}
-
 type WebSocketServer struct {
 	clients  map[string]*websocket.Conn
 	lock     sync.Mutex

@@ -17,9 +17,12 @@ type MessageService interface {
 type StockService interface {
 	Save(ctx context.Context, productID string, quantity int) error
 	Update(ctx context.Context, productID string, quantity int) error
-	IncreaseQuantity(ctx context.Context, q int, id string) error
-	DecreaseQuantity(ctx context.Context, q int, id string) error
+	IncreaseQuantity(ctx context.Context, q int, productID string) error
+	DecreaseQuantity(ctx context.Context, q int, productID string) error
 	Delete(ctx context.Context, id string) error
+
+	GetAll(ctx context.Context) ([]model.Stock, error)
+	GetByProductID(ctx context.Context, productID string) (*model.Stock, error)
 }
 
 type OrderService interface {

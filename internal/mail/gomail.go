@@ -18,10 +18,10 @@ type mailService struct {
 	mailClient *gomail.Dialer
 }
 
-func InitMailClient() *gomail.Dialer {
+func InitSMTP() *gomail.Dialer {
 	port, err := strconv.Atoi(appcore_config.Config.EmailSMTPPort)
 	if err != nil {
-		log.Panicf("fail to catch type string to int in initMailClient :%v", err)
+		log.Panicf("fail to catch type string to int in initSMTP :%v", err)
 	}
 
 	mailer := gomail.NewDialer(
@@ -57,7 +57,7 @@ func (s *mailService) SendEmail(msg string, subject string, to []string) error {
 		return ErrSendMessage
 	}
 
-	log.Info("send email success")
+	log.Info("[gomail]: send email success")
 	return nil
 }
 
@@ -81,6 +81,6 @@ func (s *mailService) SendWelcomeEmail(to []string) error {
 		return ErrSendMessage
 	}
 
-	log.Info("Send welcome email success")
+	log.Info("[gomail]: send welcome email success")
 	return nil
 }
