@@ -13,7 +13,7 @@ import (
 func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 	var baseLogFields = log.Fields{
 		"layer":     "middleware",
-		"operation": "authenticate_middleware",
+		"method": "authenticate_middleware",
 	}
 
 	return func(c *gin.Context) {
@@ -39,7 +39,7 @@ func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid claims"})
 			return
 		}
-		
+
 		userID := claims.Subject
 		c.Set("user_id", userID)
 		c.Next()
@@ -49,7 +49,7 @@ func AuthenticateMiddleware(authSvc auth.Jwt) gin.HandlerFunc {
 func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFunc {
 	var baseLogFields = log.Fields{
 		"layer":     "middleware",
-		"operation": "authorize_middleware",
+		"method": "authorize_middleware",
 	}
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("user_id")
@@ -59,24 +59,15 @@ func AuthorizeMiddleware(authSvc auth.Jwt, allowedRoles ...string) gin.HandlerFu
 		}
 		userID := userIDVal.(string)
 
-		// ดึง user จาก cache หรือ DB
-		role, err := authSvc.GetRoleUserByID(c, userID)
-		if err != nil {
-			log.WithError(err).WithFields(baseLogFields).Error("user not found")
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user not found"})
+		// ดึง user จาก cache หรือ DB return true or false
+		err := authSvc.CheckAllowRoles(userID, allowedRoles)
+		if err == nil {
+			log.Info("[Middleware]: Role pass")
+			c.Next()
 			return
 		}
 
-		// ตรวจว่า role ตรงไหม
-		for _, allowed := range allowedRoles {
-			if *role == allowed {
-				log.Info("[Middleware]: Role pass")
-				c.Next()
-				return
-			}
-		}
-
-		log.WithError(errors.New("role not match")).WithFields(baseLogFields)
+		log.WithError(err).WithFields(baseLogFields)
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "no permissions"})
 	}
 }

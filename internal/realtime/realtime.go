@@ -122,7 +122,7 @@ func (cr *LiveChat) Listen(userID string, conn *websocket.Conn) {
 
 			// check roles ที่ allow ทั้งหมดเทียบกับ userRole
 			var allowedRoles = []string{"USER", "SELLER", "ADMIN"}
-			if cr.authSvc.CheckAllowRoles(userID, allowedRoles) {
+			if err := cr.authSvc.CheckAllowRoles(userID, allowedRoles); err == nil {
 				log.Info("[Websocket]: Role pass")
 				authenticated = true
 				cr.realtimeSvc.Online(userID, conn)

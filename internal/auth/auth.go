@@ -149,7 +149,7 @@ func (a *authService) GetRoleUserByID(ctx context.Context, userID string) (*stri
 	return &user.Role, nil
 }
 
-func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool {
+func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) error {
 	var baseLogFileds = log.Fields{
 		"user_id":   userID,
 		"layer":     "auth_service",
@@ -159,14 +159,14 @@ func (a *authService) CheckAllowRoles(userID string, allowedRoles []string) bool
 	userRole, err := a.GetRoleUserByID(context.Background(), userID)
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds)
-		return false
+		return errors.New("user not found")
 	}
 	for _, allowed := range allowedRoles {
 		if *userRole == allowed {
-			return true
+			return nil
 		}
 	}
 
 	log.WithError(errors.New("role not match")).WithFields(baseLogFileds)
-	return false
+	return errors.New("role not match")
 }
