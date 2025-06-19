@@ -1,7 +1,8 @@
-package handler
+package auth
 
 import (
 	"go-rebuild/internal/auth"
+	"go-rebuild/internal/handler"
 	"go-rebuild/internal/model"
 	"net/http"
 
@@ -9,15 +10,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type AuthHandler struct {
+type authHandler struct {
 	service auth.Jwt
 }
 
-func NewAuthHandler(service auth.Jwt) *AuthHandler {
-	return &AuthHandler{service: service}
+func NewAuthHandler(service auth.Jwt) handler.AuthHandler {
+	return &authHandler{service: service}
 }
 
-func (h *AuthHandler) RegisterUser(c *gin.Context) {
+func (h *authHandler) RegisterUser(c *gin.Context) {
 	var user model.User
 	user.Role = "USER"
 
@@ -35,7 +36,7 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 }
 
 
-func (h *AuthHandler) RegisterSeller(c *gin.Context) {
+func (h *authHandler) RegisterSeller(c *gin.Context) {
 	var seller model.User
 	seller.Role = "SELLER"
 
@@ -52,7 +53,7 @@ func (h *AuthHandler) RegisterSeller(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "user registered successfully"})
 }
 
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *authHandler) Login(c *gin.Context) {
 	logrus.Info("Login")
 	var user model.User
 	if err := c.ShouldBindJSON(&user); err != nil {

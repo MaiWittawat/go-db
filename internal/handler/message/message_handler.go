@@ -1,6 +1,7 @@
-package handler
+package message
 
 import (
+	"go-rebuild/internal/handler"
 	"go-rebuild/internal/module"
 	"go-rebuild/internal/realtime"
 	"log"
@@ -10,19 +11,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type MessageHandler struct {
+type messageHandler struct {
 	liveChat   *realtime.LiveChat
 	messageSvc module.MessageService
 }
 
-func NewMessageHandler(liveChat *realtime.LiveChat, messageSvc module.MessageService) *MessageHandler {
-	return &MessageHandler{
+func NewMessageHandler(liveChat *realtime.LiveChat, messageSvc module.MessageService) handler.MessageHandler {
+	return &messageHandler{
 		liveChat: liveChat,
 		messageSvc: messageSvc,
 	}
 }
 
-func (h *MessageHandler) Connect(c *gin.Context) {
+func (h *messageHandler) Connect(c *gin.Context) {
 	userID := c.Query("user_id")
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "userID is required"})
@@ -40,7 +41,7 @@ func (h *MessageHandler) Connect(c *gin.Context) {
 	go h.liveChat.Listen(userID, conn) // ไม่ block Gin handler
 }
 
-func (h *MessageHandler) GetMessagesBetweenUser(c *gin.Context) {
+func (h *messageHandler) GetMessagesBetweenUser(c *gin.Context) {
 	userID1 := c.Param("user_id1")
 	userID2 := c.Param("user_id2")
 

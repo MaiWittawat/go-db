@@ -1,6 +1,7 @@
-package handler
+package product
 
 import (
+	"go-rebuild/internal/handler"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"net/http"
@@ -8,15 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ProductHandler struct {
+type productHandler struct {
 	service module.ProductService
 }
 
-func NewProductHandler(service module.ProductService) *ProductHandler {
-	return &ProductHandler{service: service}
+func NewProductHandler(service module.ProductService) handler.ProductHandler {
+	return &productHandler{service: service}
 }
 
-func (h *ProductHandler) CreateProduct(c *gin.Context) {
+func (h *productHandler) CreateProduct(c *gin.Context) {
 	var productReq model.ProductReq
 	
 	if err := c.ShouldBindJSON(&productReq); err != nil {
@@ -34,7 +35,7 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "product created"})
 }
 
-func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+func (h *productHandler) UpdateProduct(c *gin.Context) {
 	var upDateProductReq model.ProductReq
 	userID := c.GetString("user_id")
 
@@ -51,7 +52,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "product updated"})
 }
 
-func (h *ProductHandler) DeleteProduct(c *gin.Context) {
+func (h *productHandler) DeleteProduct(c *gin.Context) {
 	if err := h.service.Delete(c.Request.Context(), c.Param("id")); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -59,7 +60,7 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "product deleted"})
 }
 
-func (h *ProductHandler) GetProducts(c *gin.Context) {
+func (h *productHandler) GetProducts(c *gin.Context) {
 	productsRes, err := h.service.GetAll(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -69,7 +70,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "get product success", "data": productsRes})
 }
 
-func (h *ProductHandler) GetProduct(c *gin.Context) {
+func (h *productHandler) GetProductByID(c *gin.Context) {
 	productRes, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

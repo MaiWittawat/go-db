@@ -9,6 +9,13 @@ import (
 	dbRepo "go-rebuild/internal/db"
 	"go-rebuild/internal/handler"
 	"go-rebuild/internal/handler/api"
+	authHandler "go-rebuild/internal/handler/auth"
+	messageHandler "go-rebuild/internal/handler/message"
+	orderHandler "go-rebuild/internal/handler/order"
+	productHandler "go-rebuild/internal/handler/product"
+	stockHandler "go-rebuild/internal/handler/stock"
+	storerHandler "go-rebuild/internal/handler/storer"
+	userHandler "go-rebuild/internal/handler/user"
 	"go-rebuild/internal/mail"
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
@@ -39,15 +46,15 @@ import (
 )
 
 type AppClients struct {
-	MongoDB             *mongo.Client
-	PostgresDB          *gorm.DB
-	RedisClient         *redis.Client
-	RabbitMQConn        *amqp.Connection
-	
+	MongoDB      *mongo.Client
+	PostgresDB   *gorm.DB
+	RedisClient  *redis.Client
+	RabbitMQConn *amqp.Connection
+
 	// Auto close
 	MailClient          *gomail.Dialer
 	WebSocketServer     *realtime.WebSocketServer
-	MinioClient         *minio.Client 
+	MinioClient         *minio.Client
 	ProducerChannel     *amqp.Channel
 	UserConsumeChannel  *amqp.Channel
 	StockConsumeChannel *amqp.Channel
@@ -77,13 +84,13 @@ type AppServices struct {
 	LiveChat        *realtime.LiveChat
 
 	// Handlers
-	AuthHandler    *handler.AuthHandler
-	UserHandler    *handler.UserHandler
-	ProductHandler *handler.ProductHandler
-	OrderHandler   *handler.OrderHandler
-	StockHandler   *handler.StockHandler
-	MessageHandler *handler.MessageHandler
-	StorerHandler  *handler.StorerHandler
+	AuthHandler    handler.AuthHandler
+	UserHandler    handler.UserHandler
+	ProductHandler handler.ProductHandler
+	OrderHandler   handler.OrderHandler
+	StockHandler   handler.StockHandler
+	MessageHandler handler.MessageHandler
+	StorerHandler  handler.StorerHandler
 }
 
 // ------------------------------ Init 3rd Party ------------------------------
@@ -166,13 +173,13 @@ func BuildApplicationServices(clients *AppClients) *AppServices {
 	storageService := storer.NewStorerService(clients.MinioClient, appcore_config.Config.MinioBucketName)
 
 	// Handler
-	authHandler := handler.NewAuthHandler(authService)
-	userHandler := handler.NewUserHandler(userService)
-	productHandler := handler.NewProductHandler(productService)
-	orderHandler := handler.NewOrderHandler(orderService)
-	stockHandler := handler.NewStockHandler(stockService)
-	messageHandler := handler.NewMessageHandler(liveChat, messageService)
-	storerHandler := handler.NewStorerHandler(storageService)
+	authHandler := authHandler.NewAuthHandler(authService)
+	userHandler := userHandler.NewUserHandler(userService)
+	productHandler := productHandler.NewProductHandler(productService)
+	orderHandler := orderHandler.NewOrderHandler(orderService)
+	stockHandler := stockHandler.NewStockHandler(stockService)
+	messageHandler := messageHandler.NewMessageHandler(liveChat, messageService)
+	storerHandler := storerHandler.NewStorerHandler(storageService)
 
 	return &AppServices{
 		DBRepository:      dbRepository,
@@ -206,11 +213,11 @@ func BuildApplicationServices(clients *AppClients) *AppServices {
 // ------------------------------ API Routing ------------------------------
 func APIRoutes(router *gin.Engine, appSvc *AppServices) {
 	apiConf := api.NewAPIRouterConfigurator(
-		appSvc.AuthHandler, 
-		appSvc.UserHandler, 
-		appSvc.OrderHandler, 
-		appSvc.ProductHandler, 
-		appSvc.StockHandler, 
+		appSvc.AuthHandler,
+		appSvc.UserHandler,
+		appSvc.OrderHandler,
+		appSvc.ProductHandler,
+		appSvc.StockHandler,
 		appSvc.MessageHandler,
 		appSvc.StorerHandler,
 		appSvc.AuthService,

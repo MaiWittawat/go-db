@@ -1,6 +1,7 @@
-package handler
+package order
 
 import (
+	"go-rebuild/internal/handler"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/module"
 	"net/http"
@@ -8,15 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type OrderHandler struct {
+type orderHandler struct {
 	service module.OrderService
 }
 
-func NewOrderHandler(service module.OrderService) *OrderHandler {
-	return &OrderHandler{service: service}
+func NewOrderHandler(service module.OrderService) handler.OrderHandler {
+	return &orderHandler{service: service}
 }
 
-func (h *OrderHandler) CreateOrder(c *gin.Context) {
+func (h *orderHandler) CreateOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var oReq model.OrderReq
 	if err := c.ShouldBindJSON(&oReq); err != nil {
@@ -32,7 +33,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "order created"})
 }
 
-func (h *OrderHandler) UpdateOrder(c *gin.Context) {
+func (h *orderHandler) UpdateOrder(c *gin.Context) {
 	var upDateOrder model.Order
 	if err := c.ShouldBindJSON(&upDateOrder); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -46,7 +47,7 @@ func (h *OrderHandler) UpdateOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "order updated"})
 }
 
-func (h *OrderHandler) DeleteOrder(c *gin.Context) {
+func (h *orderHandler) DeleteOrder(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if err := h.service.Delete(c.Request.Context(), c.Param("id"), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -55,20 +56,20 @@ func (h *OrderHandler) DeleteOrder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "order deleted"})
 }
 
-func (h *OrderHandler) GetOrder(c *gin.Context) {
-	order, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "get order success", "data": order})
-}
-
-func (h *OrderHandler) GetOrders(c *gin.Context) {
+func (h *orderHandler) GetOrders(c *gin.Context) {
 	orders, err := h.service.GetAll(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "get orders success", "data": orders})
+}
+
+func (h *orderHandler) GetOrderByID(c *gin.Context) {
+	order, err := h.service.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "get order success", "data": order})
 }

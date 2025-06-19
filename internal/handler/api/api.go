@@ -8,17 +8,17 @@ import (
 )
 
 type APIRouterConfigurator struct {
-	authHandler    *handler.AuthHandler
-	userHandler    *handler.UserHandler
-	orderHandler   *handler.OrderHandler
-	productHandler *handler.ProductHandler
-	stockHandler   *handler.StockHandler
-	messageHandler *handler.MessageHandler
-	storerHandler  *handler.StorerHandler
+	authHandler    handler.AuthHandler
+	userHandler    handler.UserHandler
+	orderHandler   handler.OrderHandler
+	productHandler handler.ProductHandler
+	stockHandler   handler.StockHandler
+	messageHandler handler.MessageHandler
+	storerHandler  handler.StorerHandler
 	auth           auth.Jwt
 }
 
-func NewAPIRouterConfigurator(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, orderHandler *handler.OrderHandler, productHandler *handler.ProductHandler, stockHandler *handler.StockHandler, messageHandler *handler.MessageHandler, storerHandler *handler.StorerHandler, auth auth.Jwt) *APIRouterConfigurator {
+func NewAPIRouterConfigurator(authHandler handler.AuthHandler, userHandler handler.UserHandler, orderHandler handler.OrderHandler, productHandler handler.ProductHandler, stockHandler handler.StockHandler, messageHandler handler.MessageHandler, storerHandler handler.StorerHandler, auth auth.Jwt) *APIRouterConfigurator {
 	return &APIRouterConfigurator{
 		authHandler:    authHandler,
 		userHandler:    userHandler,
@@ -40,12 +40,12 @@ func (api *APIRouterConfigurator) PublicAPIRoutes(router *gin.Engine) {
 	// Product
 	publicProduct := router.Group("/products")
 	publicProduct.GET("/", api.productHandler.GetProducts)
-	publicProduct.GET("/:id", api.productHandler.GetProduct)
+	publicProduct.GET("/:id", api.productHandler.GetProductByID)
 
 	// Stock
 	publicStock := router.Group("/stocks")
 	publicStock.GET("/", api.stockHandler.GetStocks)
-	publicStock.GET("/:product_id", api.stockHandler.GetStock)
+	publicStock.GET("/:product_id", api.stockHandler.GetStockByProductID)
 
 	// Storer
 	publicStorer := router.Group("/")
@@ -64,8 +64,8 @@ func (api *APIRouterConfigurator) ProtectAPIRoutes(router *gin.Engine) {
 	protectedUser.Use(handler.AuthenticateMiddleware(api.auth), handler.AuthorizeMiddleware(api.auth, "USER", "SELLER", "ADMIN"))
 	protectedUser.GET("/", api.userHandler.GetUsers)
 	protectedUser.GET("/:id", api.userHandler.GetUserByID)
-	protectedUser.PATCH("/:id", api.userHandler.EditUser)
-	protectedUser.DELETE("/:id", api.userHandler.DropUser)
+	protectedUser.PATCH("/:id", api.userHandler.UpdateUser)
+	protectedUser.DELETE("/:id", api.userHandler.DeleteUser)
 
 	// Product
 	protectedProduct := router.Group("/products")
@@ -77,7 +77,7 @@ func (api *APIRouterConfigurator) ProtectAPIRoutes(router *gin.Engine) {
 	// Order
 	protectedOrder := router.Group("/orders")
 	protectedOrder.Use(handler.AuthenticateMiddleware(api.auth), handler.AuthorizeMiddleware(api.auth, "USER", "SELLER", "ADMIN"))
-	protectedOrder.GET("/:id", api.orderHandler.GetOrder)
+	protectedOrder.GET("/:id", api.orderHandler.GetOrderByID)
 	protectedOrder.POST("/", api.orderHandler.CreateOrder)
 	protectedOrder.PATCH("/:id", api.orderHandler.UpdateOrder)
 	protectedOrder.DELETE("/:id", api.orderHandler.DeleteOrder)
