@@ -12,6 +12,7 @@ import (
 	messagebroker "go-rebuild/internal/message_broker"
 	"go-rebuild/internal/model"
 	"go-rebuild/internal/realtime"
+	"go-rebuild/internal/storer"
 
 	messageSvc "go-rebuild/internal/module/message"
 	orderSvc "go-rebuild/internal/module/order"
@@ -39,10 +40,10 @@ import (
 )
 
 var (
-	mgDBInstant         *mongo.Client
-	pgDBInstant         *gorm.DB
-	redisClientInstant  *redis.Client
-	rabbitMQConn        *amqp.Connection
+	mgDBInstant        *mongo.Client
+	pgDBInstant        *gorm.DB
+	redisClientInstant *redis.Client
+	rabbitMQConn       *amqp.Connection
 )
 
 func main() {
@@ -102,6 +103,9 @@ func main() {
 	// init websocket
 	websocketServer := realtime.NewWebSocketServer()
 
+	// init minio
+	minioClient := storer.InitMinio(appcore_config.Config.MinioURL, appcore_config.Config.MinioAccessKey, appcore_config.Config.MinioSecretKey)
+
 	// init rabbitmq
 	rabbitMQConn = messagebroker.InitRabbitmq()
 	producerChannel := messagebroker.OpenChannel(rabbitMQConn)
@@ -145,6 +149,7 @@ func main() {
 	orderService := orderSvc.NewOrderService(orderRepository, productSvc, producerService)
 	messageService := messageSvc.NewMessageService(messageRepository)
 	liveChat := realtime.NewLiveChat(websocketServer, messageService, authService)
+	storageService := storer.NewStorerService(minioClient, appcore_config.Config.MinioBucketName)
 
 	// Handler
 	authHandler := handler.NewAuthHandler(authService)
@@ -153,6 +158,7 @@ func main() {
 	orderHandler := handler.NewOrderHandler(orderService)
 	stockHandler := handler.NewStockHandler(stockService)
 	messageHandler := handler.NewMessageHandler(liveChat, messageService)
+	storerHandler := handler.NewStorerHandler(storageService)
 
 	// API
 	api.RegisterAuthAPI(router, authHandler)
@@ -161,6 +167,7 @@ func main() {
 	api.RegisterOrderAPI(router, orderHandler, authService)
 	api.RegisterStockAPI(router, stockHandler, authService)
 	api.RegisterMessageAPI(router, messageHandler, authService)
+	api.RegisterStorageAPI(router, storerHandler)
 
 	// start consume
 	go mqBroker.EmailConsuming(messagebroker.UserQueueName, "user_consume")

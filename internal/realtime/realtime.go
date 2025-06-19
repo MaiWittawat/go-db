@@ -135,12 +135,6 @@ func (cr *LiveChat) Listen(userID string, conn *websocket.Conn) {
 			conn.Close()
 			return
 
-		// case "Refresh_token":
-		// 	if !authenticated {
-		// 		log.Error("[Chat_Refresh_Token]: err invalid format", )
-		// 		conn.WriteJSON(map[string]string{"type": "AUTH_FAIL", "error": "invalid format"})
-		// 	}
-
 		default:
 			log.Warnf("unknown message type: %s", wsPayload.Type)
 		}
