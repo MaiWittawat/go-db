@@ -13,8 +13,8 @@ type AuthHandler struct {
 	service auth.Jwt
 }
 
-func NewAuthHandler(service auth.Jwt) AuthHandler {
-	return AuthHandler{service: service}
+func NewAuthHandler(service auth.Jwt) *AuthHandler {
+	return &AuthHandler{service: service}
 }
 
 func (h *AuthHandler) RegisterUser(c *gin.Context) {
