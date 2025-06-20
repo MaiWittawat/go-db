@@ -59,7 +59,7 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte(appcore_config.Config.SecretKey))
 	if err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFileds).Error("generate token")
 		return nil, ErrCreateToken
 	}
 
@@ -79,12 +79,12 @@ func (a *authService) VerifyToken(tokenStr string) (*model.Claims, error) {
 	})
 
 	if err != nil {
-		log.WithError(err).WithFields(baseLogFileds)
+		log.WithError(err).WithFields(baseLogFileds).Error("parse with claims")
 		return nil, ErrVerifyToken
 	}
 
 	if !token.Valid {
-		log.WithError(jwt.ErrTokenInvalidClaims).WithFields(baseLogFileds)
+		log.WithError(jwt.ErrTokenInvalidClaims).WithFields(baseLogFileds).Error("invalid token")
 		return nil, ErrVerifyToken
 	}
 

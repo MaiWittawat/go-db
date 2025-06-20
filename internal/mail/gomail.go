@@ -51,7 +51,7 @@ func (s *mailService) SendEmail(msg string, subject string, to []string) error {
 	m.SetHeader("To", to[0])
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html", msg)
-
+	log.Info("[gomail]: before DialAndSend call")
 	if err := s.mailClient.DialAndSend(m); err != nil {
 		log.WithError(err).WithFields(baseLogFields)
 		return ErrSendMessage
@@ -76,6 +76,7 @@ func (s *mailService) SendWelcomeEmail(to []string) error {
 	m.SetHeader("Subject", subject)
 	m.SetBody("text/html", msg)
 
+	log.Info("[gomail]: before DialAndSend call")
 	if err := s.mailClient.DialAndSend(m); err != nil {
 		log.WithError(err).WithFields(baseLogFields)
 		return ErrSendMessage

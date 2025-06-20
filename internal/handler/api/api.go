@@ -18,7 +18,16 @@ type APIRouterConfigurator struct {
 	auth           auth.Jwt
 }
 
-func NewAPIRouterConfigurator(authHandler handler.AuthHandler, userHandler handler.UserHandler, orderHandler handler.OrderHandler, productHandler handler.ProductHandler, stockHandler handler.StockHandler, messageHandler handler.MessageHandler, storerHandler handler.StorerHandler, auth auth.Jwt) *APIRouterConfigurator {
+func NewAPIRouterConfigurator(
+		authHandler handler.AuthHandler,
+		userHandler handler.UserHandler,
+		orderHandler handler.OrderHandler,
+		productHandler handler.ProductHandler,
+		stockHandler handler.StockHandler,
+		messageHandler handler.MessageHandler, 
+		storerHandler handler.StorerHandler, 
+		auth auth.Jwt,
+	) *APIRouterConfigurator {
 	return &APIRouterConfigurator{
 		authHandler:    authHandler,
 		userHandler:    userHandler,

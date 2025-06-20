@@ -11,7 +11,6 @@ type DB interface {
 	Update(ctx context.Context, collection string, m any, id string) error
 	Delete(ctx context.Context, collection string, m any, id string) error
 
-
 	// basic Query
 	GetAll(ctx context.Context, collection string, results any) error
 	GetByID(ctx context.Context, collection string, id string, result any) error
