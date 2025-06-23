@@ -1,5 +1,4 @@
 .env
-config.go
 .DS_Store
 
 /internal/factory
