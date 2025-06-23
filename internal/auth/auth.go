@@ -33,7 +33,7 @@ type authService struct {
 
 func NewAuthService(userSvc module.UserService, producerSvc messagebroker.ProducerService) Jwt {
 	return &authService{
-		secretKey:   appcore_config.Config.SecretKey,
+		secretKey:   appcore_config.Config.JwtSecretKey,
 		userSvc:     userSvc,
 		producerSvc: producerSvc,
 	}
@@ -57,7 +57,7 @@ func (a *authService) GenerateToken(user *model.User) (*string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, err := token.SignedString([]byte(appcore_config.Config.SecretKey))
+	tokenStr, err := token.SignedString([]byte(appcore_config.Config.JwtSecretKey))
 	if err != nil {
 		log.WithError(err).WithFields(baseLogFileds).Error("generate token")
 		return nil, ErrCreateToken
@@ -75,7 +75,7 @@ func (a *authService) VerifyToken(tokenStr string) (*model.Claims, error) {
 
 	claims := &model.Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(appcore_config.Config.SecretKey), nil
+		return []byte(appcore_config.Config.JwtSecretKey), nil
 	})
 
 	if err != nil {
