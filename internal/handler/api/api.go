@@ -3,6 +3,7 @@ package api
 import (
 	"go-rebuild/internal/auth"
 	"go-rebuild/internal/handler"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,15 +20,15 @@ type APIRouterConfigurator struct {
 }
 
 func NewAPIRouterConfigurator(
-		authHandler handler.AuthHandler,
-		userHandler handler.UserHandler,
-		orderHandler handler.OrderHandler,
-		productHandler handler.ProductHandler,
-		stockHandler handler.StockHandler,
-		messageHandler handler.MessageHandler, 
-		storerHandler handler.StorerHandler, 
-		auth auth.Jwt,
-	) *APIRouterConfigurator {
+	authHandler handler.AuthHandler,
+	userHandler handler.UserHandler,
+	orderHandler handler.OrderHandler,
+	productHandler handler.ProductHandler,
+	stockHandler handler.StockHandler,
+	messageHandler handler.MessageHandler,
+	storerHandler handler.StorerHandler,
+	auth auth.Jwt,
+) *APIRouterConfigurator {
 	return &APIRouterConfigurator{
 		authHandler:    authHandler,
 		userHandler:    userHandler,
@@ -40,8 +41,18 @@ func NewAPIRouterConfigurator(
 	}
 }
 
+func Ping(c *gin.Context) {
+	c.JSON(http.StatusOK, map[string]any{
+		"service": "go-api",
+		"mode":    "dev",
+		"version": "0.0.1",
+		"message": "pong",
+	})
+}
+
 func (api *APIRouterConfigurator) PublicAPIRoutes(router *gin.Engine) {
 	public := router.Group("/")
+	public.GET("/ping", Ping)
 	public.POST("/register/user", api.authHandler.RegisterUser)
 	public.POST("/register/seller", api.authHandler.RegisterSeller)
 	public.POST("/login", api.authHandler.Login)
